@@ -1,3 +1,5 @@
+#if 1
+
 #include "wiPhysics.h"
 #include "wiScene.h"
 #include "wiProfiler.h"
@@ -149,7 +151,336 @@ namespace wi::physics
 			}
 			return *(SoftBody*)physicscomponent.physicsobject.get();
 		}
-	}
+	
+		void AddRigidBody(
+			wi::scene::Scene& scene,
+			Entity entity,
+			wi::scene::RigidBodyPhysicsComponent& physicscomponent,
+			const wi::scene::TransformComponent& transform,
+			const wi::scene::MeshComponent* mesh
+		)
+		{
+			RigidBody& physicsobject = GetRigidBody(physicscomponent);
+
+			switch (physicscomponent.shape)
+			{
+			case RigidBodyPhysicsComponent::CollisionShape::BOX:
+				physicsobject.shape = std::make_unique<btBoxShape>(btVector3(physicscomponent.box.halfextents.x, physicscomponent.box.halfextents.y, physicscomponent.box.halfextents.z));
+				break;
+			case RigidBodyPhysicsComponent::CollisionShape::SPHERE:
+				physicsobject.shape = std::make_unique<btSphereShape>(btScalar(physicscomponent.sphere.radius));
+				break;
+			case RigidBodyPhysicsComponent::CollisionShape::CAPSULE:
+				physicsobject.shape = std::make_unique<btCapsuleShape>(btScalar(physicscomponent.capsule.radius), btScalar(physicscomponent.capsule.height));
+				break;
+
+			case RigidBodyPhysicsComponent::CollisionShape::CONVEX_HULL:
+				if(mesh != nullptr)
+				{
+					physicsobject.shape = std::make_unique<btConvexHullShape>();
+					btConvexHullShape* convexHull = (btConvexHullShape*)physicsobject.shape.get();
+					for (auto& pos : mesh->vertex_positions)
+					{
+						convexHull->addPoint(btVector3(pos.x, pos.y, pos.z));
+					}
+				}
+				else
+				{
+					wi::backlog::post("Convex Hull physics requested, but no MeshComponent provided!");
+					assert(0);
+				}
+				break;
+
+			case RigidBodyPhysicsComponent::CollisionShape::TRIANGLE_MESH:
+				if(mesh != nullptr)
+				{
+					int totalTriangles = 0;
+					int* indices = nullptr;
+					uint32_t first_subset = 0;
+					uint32_t last_subset = 0;
+					mesh->GetLODSubsetRange(physicscomponent.mesh_lod, first_subset, last_subset);
+					for (uint32_t subsetIndex = first_subset; subsetIndex < last_subset; ++subsetIndex)
+					{
+						const MeshComponent::MeshSubset& subset = mesh->subsets[subsetIndex];
+						if (indices == nullptr)
+						{
+							indices = (int*)(mesh->indices.data() + subset.indexOffset);
+						}
+						totalTriangles += int(subset.indexCount / 3);
+					}
+
+					physicsobject.triangles = btTriangleIndexVertexArray(
+						totalTriangles,
+						indices,
+						3 * int(sizeof(int)),
+						int(mesh->vertex_positions.size()),
+						(btScalar*)mesh->vertex_positions.data(),
+						int(sizeof(XMFLOAT3))
+					);
+
+					bool useQuantizedAabbCompression = true;
+					physicsobject.shape = std::make_unique<btBvhTriangleMeshShape>(&physicsobject.triangles, useQuantizedAabbCompression);
+				}
+				else
+				{
+					wi::backlog::post("Triangle Mesh physics requested, but no MeshComponent provided!");
+					assert(0);
+				}
+				break;
+			}
+
+			if (physicsobject.shape == nullptr)
+			{
+				physicscomponent.physicsobject = nullptr;
+				return;
+			}
+			else
+			{
+				// Use default margin for now
+				//shape->setMargin(btScalar(0.01));
+
+				btVector3 S(transform.scale_local.x, transform.scale_local.y, transform.scale_local.z);
+				physicsobject.shape->setLocalScaling(S);
+
+				btScalar mass = physicscomponent.mass;
+
+				bool isDynamic = (mass != 0.f && !physicscomponent.IsKinematic());
+
+				if (physicscomponent.shape == RigidBodyPhysicsComponent::CollisionShape::TRIANGLE_MESH)
+				{
+					isDynamic = false;
+				}
+
+				btVector3 localInertia(0, 0, 0);
+				if (isDynamic)
+				{
+					physicsobject.shape->calculateLocalInertia(mass, localInertia);
+				}
+				else
+				{
+					mass = 0;
+				}
+
+				XMVECTOR SCA = {};
+				XMVECTOR ROT = {};
+				XMVECTOR TRA = {};
+				XMMatrixDecompose(&SCA, &ROT, &TRA, XMLoadFloat4x4(&transform.world));
+				XMFLOAT4 rot = {};
+				XMFLOAT3 tra = {};
+				XMStoreFloat4(&rot, ROT);
+				XMStoreFloat3(&tra, TRA);
+
+				//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+				btTransform shapeTransform;
+				shapeTransform.setIdentity();
+				shapeTransform.setOrigin(btVector3(tra.x, tra.y, tra.z));
+				shapeTransform.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
+				physicsobject.motionState = btDefaultMotionState(shapeTransform);
+
+				btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, &physicsobject.motionState, physicsobject.shape.get(), localInertia);
+				//rbInfo.m_friction = physicscomponent.friction;
+				//rbInfo.m_restitution = physicscomponent.restitution;
+				//rbInfo.m_linearDamping = physicscomponent.damping;
+				//rbInfo.m_angularDamping = physicscomponent.damping;
+
+				physicsobject.rigidBody = std::make_unique<btRigidBody>(rbInfo);
+				physicsobject.rigidBody->setUserIndex(entity);
+
+				if (physicscomponent.IsKinematic())
+				{
+					physicsobject.rigidBody->setCollisionFlags(physicsobject.rigidBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+				}
+				if (physicscomponent.IsDisableDeactivation())
+				{
+					physicsobject.rigidBody->setActivationState(DISABLE_DEACTIVATION);
+				}
+
+				physicsobject.physics_scene = scene.physics_scene;
+				GetPhysicsScene(scene).dynamicsWorld.addRigidBody(physicsobject.rigidBody.get());
+
+				if (isDynamic)
+				{
+					// We must detach dynamic objects, because their physics object is created in world space
+					//	and attachment would apply double transformation to the transform
+					scene.Component_Detach(entity);
+				}
+			}
+		}
+
+		void AddSoftBody(
+			wi::scene::Scene& scene,
+			Entity entity,
+			wi::scene::SoftBodyPhysicsComponent& physicscomponent,
+			const wi::scene::MeshComponent& mesh
+		)
+		{
+			SoftBody& physicsobject = GetSoftBody(physicscomponent);
+			physicscomponent.CreateFromMesh(mesh);
+
+			XMMATRIX worldMatrix = XMLoadFloat4x4(&physicscomponent.worldMatrix);
+
+			const int vCount = (int)physicscomponent.physicsToGraphicsVertexMapping.size();
+			wi::vector<btScalar> btVerts(vCount * 3);
+			for (int i = 0; i < vCount; ++i)
+			{
+				uint32_t graphicsInd = physicscomponent.physicsToGraphicsVertexMapping[i];
+
+				XMFLOAT3 position = mesh.vertex_positions[graphicsInd];
+				XMVECTOR P = XMLoadFloat3(&position);
+				P = XMVector3Transform(P, worldMatrix);
+				XMStoreFloat3(&position, P);
+
+				btVerts[i * 3 + 0] = btScalar(position.x);
+				btVerts[i * 3 + 1] = btScalar(position.y);
+				btVerts[i * 3 + 2] = btScalar(position.z);
+			}
+
+			wi::vector<int> btInd;
+			btInd.reserve(mesh.indices.size());
+			uint32_t first_subset = 0;
+			uint32_t last_subset = 0;
+			mesh.GetLODSubsetRange(0, first_subset, last_subset);
+			for (uint32_t subsetIndex = first_subset; subsetIndex < last_subset; ++subsetIndex)
+			{
+				const MeshComponent::MeshSubset& subset = mesh.subsets[subsetIndex];
+				const uint32_t* indices = mesh.indices.data() + subset.indexOffset;
+				for (uint32_t i = 0; i < subset.indexCount; ++i)
+				{
+					btInd.push_back((int)physicscomponent.graphicsToPhysicsVertexMapping[indices[i]]);
+				}
+			}
+
+			//// This function uses new to allocate btSoftbody internally:
+			//btSoftBody* softbody = btSoftBodyHelpers::CreateFromTriMesh(
+			//	GetPhysicsScene(scene).dynamicsWorld.getWorldInfo(),
+			//	btVerts.data(),
+			//	btInd.data(),
+			//	int(btInd.size() / 3),
+			//	false
+			//);
+
+			// Modified version of btSoftBodyHelpers::CreateFromTriMesh:
+			//	This version does not allocate btSoftbody with new
+			btSoftBody* softbody = nullptr;
+			{
+				btSoftBodyWorldInfo& worldInfo = GetPhysicsScene(scene).dynamicsWorld.getWorldInfo();
+				const btScalar* vertices = btVerts.data();
+				const int* triangles = btInd.data();
+				int ntriangles = int(btInd.size() / 3);
+				bool randomizeConstraints = false;
+
+				int		maxidx = 0;
+				int i, j, ni;
+
+				for (i = 0, ni = ntriangles * 3; i < ni; ++i)
+				{
+					maxidx = btMax(triangles[i], maxidx);
+				}
+				++maxidx;
+				btAlignedObjectArray<bool>		chks;
+				btAlignedObjectArray<btVector3>	vtx;
+				chks.resize(maxidx * maxidx, false);
+				vtx.resize(maxidx);
+				for (i = 0, j = 0, ni = maxidx * 3; i < ni; ++j, i += 3)
+				{
+					vtx[j] = btVector3(vertices[i], vertices[i + 1], vertices[i + 2]);
+				}
+				//btSoftBody* psb = new btSoftBody(&worldInfo, vtx.size(), &vtx[0], 0);
+				physicsobject.softBody = std::make_unique<btSoftBody>(&worldInfo, vtx.size(), &vtx[0], nullptr);
+				softbody = physicsobject.softBody.get();
+				btSoftBody* psb = softbody;
+				for (i = 0, ni = ntriangles * 3; i < ni; i += 3)
+				{
+					const int idx[] = { triangles[i],triangles[i + 1],triangles[i + 2] };
+#define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
+					for (int j = 2, k = 0; k < 3; j = k++)
+					{
+						if (!chks[IDX(idx[j], idx[k])])
+						{
+							chks[IDX(idx[j], idx[k])] = true;
+							chks[IDX(idx[k], idx[j])] = true;
+							psb->appendLink(idx[j], idx[k]);
+						}
+					}
+#undef IDX
+					psb->appendFace(idx[0], idx[1], idx[2]);
+				}
+
+				if (randomizeConstraints)
+				{
+					psb->randomizeConstraints();
+				}
+			}
+
+			if (softbody)
+			{
+				softbody->setUserIndex(entity);
+
+				//btSoftBody::Material* pm = softbody->appendMaterial();
+				btSoftBody::Material* pm = softbody->m_materials[0];
+				pm->m_kLST = btScalar(0.9f);
+				pm->m_kVST = btScalar(0.9f);
+				pm->m_kAST = btScalar(0.9f);
+				pm->m_flags = 0;
+				softbody->generateBendingConstraints(2, pm);
+				softbody->randomizeConstraints();
+
+				softbody->m_cfg.piterations = softbodyIterationCount;
+				softbody->m_cfg.aeromodel = btSoftBody::eAeroModel::F_TwoSidedLiftDrag;
+
+				softbody->m_cfg.kAHR = btScalar(.69); //0.69		Anchor hardness  [0,1]
+				softbody->m_cfg.kCHR = btScalar(1.0); //1			Rigid contact hardness  [0,1]
+				softbody->m_cfg.kDF = btScalar(0.2); //0.2			Dynamic friction coefficient  [0,1]
+				softbody->m_cfg.kDG = btScalar(0.01); //0			Drag coefficient  [0,+inf]
+				softbody->m_cfg.kDP = btScalar(0.0); //0			Damping coefficient  [0,1]
+				softbody->m_cfg.kKHR = btScalar(0.1); //0.1			Kinetic contact hardness  [0,1]
+				softbody->m_cfg.kLF = btScalar(0.1); //0			Lift coefficient  [0,+inf]
+				softbody->m_cfg.kMT = btScalar(0.0); //0			Pose matching coefficient  [0,1]
+				softbody->m_cfg.kPR = btScalar(0.0); //0			Pressure coefficient  [-1,1]
+				softbody->m_cfg.kSHR = btScalar(1.0); //1			Soft contacts hardness  [0,1]
+				softbody->m_cfg.kVC = btScalar(0.0); //0			Volume conseration coefficient  [0,+inf]
+				softbody->m_cfg.kVCF = btScalar(1.0); //1			Velocities correction factor (Baumgarte)
+
+				softbody->m_cfg.kSKHR_CL = btScalar(1.0); //1			Soft vs. kinetic hardness   [0,1]
+				softbody->m_cfg.kSK_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
+				softbody->m_cfg.kSRHR_CL = btScalar(0.1); //0.1			Soft vs. rigid hardness  [0,1]
+				softbody->m_cfg.kSR_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
+				softbody->m_cfg.kSSHR_CL = btScalar(0.5); //0.5			Soft vs. soft hardness  [0,1]
+				softbody->m_cfg.kSS_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
+
+				for (size_t i = 0; i < physicscomponent.physicsToGraphicsVertexMapping.size(); ++i)
+				{
+					float weight = physicscomponent.weights[i];
+					softbody->setMass((int)i, weight);
+				}
+				softbody->setTotalMass(physicscomponent.mass); // this must be AFTER softbody->setMass(), so that weights will be averaged
+
+				if (physicscomponent.IsDisableDeactivation())
+				{
+					softbody->setActivationState(DISABLE_DEACTIVATION);
+				}
+
+				softbody->setPose(true, true);
+
+				physicsobject.physics_scene = scene.physics_scene;
+				GetPhysicsScene(scene).dynamicsWorld.addSoftBody(softbody);
+			}
+		}
+
+		constexpr int to_internal(ActivationState state)
+		{
+			switch (state)
+			{
+			default:
+			case wi::physics::ActivationState::Active:
+				return ACTIVE_TAG;
+			case wi::physics::ActivationState::Inactive:
+				return DISABLE_SIMULATION;
+			}
+		}
+
+	} // namespace bullet
+
 	using namespace bullet;
 
 	void Initialize()
@@ -171,319 +502,6 @@ namespace wi::physics
 	int GetAccuracy() { return ACCURACY; }
 	void SetAccuracy(int value) { ACCURACY = value; }
 
-	void AddRigidBody(
-		wi::scene::Scene& scene,
-		Entity entity,
-		wi::scene::RigidBodyPhysicsComponent& physicscomponent,
-		const wi::scene::TransformComponent& transform,
-		const wi::scene::MeshComponent* mesh
-	)
-	{
-		RigidBody& physicsobject = GetRigidBody(physicscomponent);
-
-		switch (physicscomponent.shape)
-		{
-		case RigidBodyPhysicsComponent::CollisionShape::BOX:
-			physicsobject.shape = std::make_unique<btBoxShape>(btVector3(physicscomponent.box.halfextents.x, physicscomponent.box.halfextents.y, physicscomponent.box.halfextents.z));
-			break;
-		case RigidBodyPhysicsComponent::CollisionShape::SPHERE:
-			physicsobject.shape = std::make_unique<btSphereShape>(btScalar(physicscomponent.sphere.radius));
-			break;
-		case RigidBodyPhysicsComponent::CollisionShape::CAPSULE:
-			physicsobject.shape = std::make_unique<btCapsuleShape>(btScalar(physicscomponent.capsule.radius), btScalar(physicscomponent.capsule.height));
-			break;
-
-		case RigidBodyPhysicsComponent::CollisionShape::CONVEX_HULL:
-			if(mesh != nullptr)
-			{
-				physicsobject.shape = std::make_unique<btConvexHullShape>();
-				btConvexHullShape* convexHull = (btConvexHullShape*)physicsobject.shape.get();
-				for (auto& pos : mesh->vertex_positions)
-				{
-					convexHull->addPoint(btVector3(pos.x, pos.y, pos.z));
-				}
-			}
-			else
-			{
-				wi::backlog::post("Convex Hull physics requested, but no MeshComponent provided!");
-				assert(0);
-			}
-			break;
-
-		case RigidBodyPhysicsComponent::CollisionShape::TRIANGLE_MESH:
-			if(mesh != nullptr)
-			{
-				int totalTriangles = 0;
-				int* indices = nullptr;
-				uint32_t first_subset = 0;
-				uint32_t last_subset = 0;
-				mesh->GetLODSubsetRange(physicscomponent.mesh_lod, first_subset, last_subset);
-				for (uint32_t subsetIndex = first_subset; subsetIndex < last_subset; ++subsetIndex)
-				{
-					const MeshComponent::MeshSubset& subset = mesh->subsets[subsetIndex];
-					if (indices == nullptr)
-					{
-						indices = (int*)(mesh->indices.data() + subset.indexOffset);
-					}
-					totalTriangles += int(subset.indexCount / 3);
-				}
-
-				physicsobject.triangles = btTriangleIndexVertexArray(
-					totalTriangles,
-					indices,
-					3 * int(sizeof(int)),
-					int(mesh->vertex_positions.size()),
-					(btScalar*)mesh->vertex_positions.data(),
-					int(sizeof(XMFLOAT3))
-				);
-
-				bool useQuantizedAabbCompression = true;
-				physicsobject.shape = std::make_unique<btBvhTriangleMeshShape>(&physicsobject.triangles, useQuantizedAabbCompression);
-			}
-			else
-			{
-				wi::backlog::post("Triangle Mesh physics requested, but no MeshComponent provided!");
-				assert(0);
-			}
-			break;
-		}
-
-		if (physicsobject.shape == nullptr)
-		{
-			physicscomponent.physicsobject = nullptr;
-			return;
-		}
-		else
-		{
-			// Use default margin for now
-			//shape->setMargin(btScalar(0.01));
-
-			btVector3 S(transform.scale_local.x, transform.scale_local.y, transform.scale_local.z);
-			physicsobject.shape->setLocalScaling(S);
-
-			btScalar mass = physicscomponent.mass;
-
-			bool isDynamic = (mass != 0.f && !physicscomponent.IsKinematic());
-
-			if (physicscomponent.shape == RigidBodyPhysicsComponent::CollisionShape::TRIANGLE_MESH)
-			{
-				isDynamic = false;
-			}
-
-			btVector3 localInertia(0, 0, 0);
-			if (isDynamic)
-			{
-				physicsobject.shape->calculateLocalInertia(mass, localInertia);
-			}
-			else
-			{
-				mass = 0;
-			}
-
-			XMVECTOR SCA = {};
-			XMVECTOR ROT = {};
-			XMVECTOR TRA = {};
-			XMMatrixDecompose(&SCA, &ROT, &TRA, XMLoadFloat4x4(&transform.world));
-			XMFLOAT4 rot = {};
-			XMFLOAT3 tra = {};
-			XMStoreFloat4(&rot, ROT);
-			XMStoreFloat3(&tra, TRA);
-
-			//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-			btTransform shapeTransform;
-			shapeTransform.setIdentity();
-			shapeTransform.setOrigin(btVector3(tra.x, tra.y, tra.z));
-			shapeTransform.setRotation(btQuaternion(rot.x, rot.y, rot.z, rot.w));
-			physicsobject.motionState = btDefaultMotionState(shapeTransform);
-
-			btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, &physicsobject.motionState, physicsobject.shape.get(), localInertia);
-			//rbInfo.m_friction = physicscomponent.friction;
-			//rbInfo.m_restitution = physicscomponent.restitution;
-			//rbInfo.m_linearDamping = physicscomponent.damping;
-			//rbInfo.m_angularDamping = physicscomponent.damping;
-
-			physicsobject.rigidBody = std::make_unique<btRigidBody>(rbInfo);
-			physicsobject.rigidBody->setUserIndex(entity);
-
-			if (physicscomponent.IsKinematic())
-			{
-				physicsobject.rigidBody->setCollisionFlags(physicsobject.rigidBody->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
-			}
-			if (physicscomponent.IsDisableDeactivation())
-			{
-				physicsobject.rigidBody->setActivationState(DISABLE_DEACTIVATION);
-			}
-
-			physicsobject.physics_scene = scene.physics_scene;
-			GetPhysicsScene(scene).dynamicsWorld.addRigidBody(physicsobject.rigidBody.get());
-
-			if (isDynamic)
-			{
-				// We must detach dynamic objects, because their physics object is created in world space
-				//	and attachment would apply double transformation to the transform
-				scene.Component_Detach(entity);
-			}
-		}
-	}
-	void AddSoftBody(
-		wi::scene::Scene& scene,
-		Entity entity,
-		wi::scene::SoftBodyPhysicsComponent& physicscomponent,
-		const wi::scene::MeshComponent& mesh
-	)
-	{
-		SoftBody& physicsobject = GetSoftBody(physicscomponent);
-		physicscomponent.CreateFromMesh(mesh);
-
-		XMMATRIX worldMatrix = XMLoadFloat4x4(&physicscomponent.worldMatrix);
-
-		const int vCount = (int)physicscomponent.physicsToGraphicsVertexMapping.size();
-		wi::vector<btScalar> btVerts(vCount * 3);
-		for (int i = 0; i < vCount; ++i) 
-		{
-			uint32_t graphicsInd = physicscomponent.physicsToGraphicsVertexMapping[i];
-
-			XMFLOAT3 position = mesh.vertex_positions[graphicsInd];
-			XMVECTOR P = XMLoadFloat3(&position);
-			P = XMVector3Transform(P, worldMatrix);
-			XMStoreFloat3(&position, P);
-
-			btVerts[i * 3 + 0] = btScalar(position.x);
-			btVerts[i * 3 + 1] = btScalar(position.y);
-			btVerts[i * 3 + 2] = btScalar(position.z);
-		}
-
-		wi::vector<int> btInd;
-		btInd.reserve(mesh.indices.size());
-		uint32_t first_subset = 0;
-		uint32_t last_subset = 0;
-		mesh.GetLODSubsetRange(0, first_subset, last_subset);
-		for (uint32_t subsetIndex = first_subset; subsetIndex < last_subset; ++subsetIndex)
-		{
-			const MeshComponent::MeshSubset& subset = mesh.subsets[subsetIndex];
-			const uint32_t* indices = mesh.indices.data() + subset.indexOffset;
-			for (uint32_t i = 0; i < subset.indexCount; ++i)
-			{
-				btInd.push_back((int)physicscomponent.graphicsToPhysicsVertexMapping[indices[i]]);
-			}
-		}
-
-		//// This function uses new to allocate btSoftbody internally:
-		//btSoftBody* softbody = btSoftBodyHelpers::CreateFromTriMesh(
-		//	GetPhysicsScene(scene).dynamicsWorld.getWorldInfo(),
-		//	btVerts.data(),
-		//	btInd.data(),
-		//	int(btInd.size() / 3),
-		//	false
-		//);
-
-		// Modified version of btSoftBodyHelpers::CreateFromTriMesh:
-		//	This version does not allocate btSoftbody with new
-		btSoftBody* softbody = nullptr;
-		{
-			btSoftBodyWorldInfo& worldInfo = GetPhysicsScene(scene).dynamicsWorld.getWorldInfo();
-			const btScalar* vertices = btVerts.data();
-			const int* triangles = btInd.data();
-			int ntriangles = int(btInd.size() / 3);
-			bool randomizeConstraints = false;
-
-			int		maxidx = 0;
-			int i, j, ni;
-
-			for (i = 0, ni = ntriangles * 3; i < ni; ++i)
-			{
-				maxidx = btMax(triangles[i], maxidx);
-			}
-			++maxidx;
-			btAlignedObjectArray<bool>		chks;
-			btAlignedObjectArray<btVector3>	vtx;
-			chks.resize(maxidx * maxidx, false);
-			vtx.resize(maxidx);
-			for (i = 0, j = 0, ni = maxidx * 3; i < ni; ++j, i += 3)
-			{
-				vtx[j] = btVector3(vertices[i], vertices[i + 1], vertices[i + 2]);
-			}
-			//btSoftBody* psb = new btSoftBody(&worldInfo, vtx.size(), &vtx[0], 0);
-			physicsobject.softBody = std::make_unique<btSoftBody>(&worldInfo, vtx.size(), &vtx[0], nullptr);
-			softbody = physicsobject.softBody.get();
-			btSoftBody* psb = softbody;
-			for (i = 0, ni = ntriangles * 3; i < ni; i += 3)
-			{
-				const int idx[] = { triangles[i],triangles[i + 1],triangles[i + 2] };
-#define IDX(_x_,_y_) ((_y_)*maxidx+(_x_))
-				for (int j = 2, k = 0; k < 3; j = k++)
-				{
-					if (!chks[IDX(idx[j], idx[k])])
-					{
-						chks[IDX(idx[j], idx[k])] = true;
-						chks[IDX(idx[k], idx[j])] = true;
-						psb->appendLink(idx[j], idx[k]);
-					}
-				}
-#undef IDX
-				psb->appendFace(idx[0], idx[1], idx[2]);
-			}
-
-			if (randomizeConstraints)
-			{
-				psb->randomizeConstraints();
-			}
-		}
-
-		if (softbody)
-		{
-			softbody->setUserIndex(entity);
-
-			//btSoftBody::Material* pm = softbody->appendMaterial();
-			btSoftBody::Material* pm = softbody->m_materials[0];
-			pm->m_kLST = btScalar(0.9f);
-			pm->m_kVST = btScalar(0.9f);
-			pm->m_kAST = btScalar(0.9f);
-			pm->m_flags = 0;
-			softbody->generateBendingConstraints(2, pm);
-			softbody->randomizeConstraints();
-
-			softbody->m_cfg.piterations = softbodyIterationCount;
-			softbody->m_cfg.aeromodel = btSoftBody::eAeroModel::F_TwoSidedLiftDrag;
-
-			softbody->m_cfg.kAHR = btScalar(.69); //0.69		Anchor hardness  [0,1]
-			softbody->m_cfg.kCHR = btScalar(1.0); //1			Rigid contact hardness  [0,1]
-			softbody->m_cfg.kDF = btScalar(0.2); //0.2			Dynamic friction coefficient  [0,1]
-			softbody->m_cfg.kDG = btScalar(0.01); //0			Drag coefficient  [0,+inf]
-			softbody->m_cfg.kDP = btScalar(0.0); //0			Damping coefficient  [0,1]
-			softbody->m_cfg.kKHR = btScalar(0.1); //0.1			Kinetic contact hardness  [0,1]
-			softbody->m_cfg.kLF = btScalar(0.1); //0			Lift coefficient  [0,+inf]
-			softbody->m_cfg.kMT = btScalar(0.0); //0			Pose matching coefficient  [0,1]
-			softbody->m_cfg.kPR = btScalar(0.0); //0			Pressure coefficient  [-1,1]
-			softbody->m_cfg.kSHR = btScalar(1.0); //1			Soft contacts hardness  [0,1]
-			softbody->m_cfg.kVC = btScalar(0.0); //0			Volume conseration coefficient  [0,+inf]
-			softbody->m_cfg.kVCF = btScalar(1.0); //1			Velocities correction factor (Baumgarte)
-
-			softbody->m_cfg.kSKHR_CL = btScalar(1.0); //1			Soft vs. kinetic hardness   [0,1]
-			softbody->m_cfg.kSK_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
-			softbody->m_cfg.kSRHR_CL = btScalar(0.1); //0.1			Soft vs. rigid hardness  [0,1]
-			softbody->m_cfg.kSR_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
-			softbody->m_cfg.kSSHR_CL = btScalar(0.5); //0.5			Soft vs. soft hardness  [0,1]
-			softbody->m_cfg.kSS_SPLT_CL = btScalar(0.5); //0.5		Soft vs. rigid impulse split  [0,1]
-
-			for (size_t i = 0; i < physicscomponent.physicsToGraphicsVertexMapping.size(); ++i)
-			{
-				float weight = physicscomponent.weights[i];
-				softbody->setMass((int)i, weight);
-			}
-			softbody->setTotalMass(physicscomponent.mass); // this must be AFTER softbody->setMass(), so that weights will be averaged
-
-			if (physicscomponent.IsDisableDeactivation())
-			{
-				softbody->setActivationState(DISABLE_DEACTIVATION);
-			}
-
-			softbody->setPose(true, true);
-
-			physicsobject.physics_scene = scene.physics_scene;
-			GetPhysicsScene(scene).dynamicsWorld.addSoftBody(softbody);
-		}
-	}
 
 	void RunPhysicsUpdateSystem(
 		wi::jobsystem::context& ctx,
@@ -876,17 +894,6 @@ namespace wi::physics
 		}
 	}
 
-	constexpr int to_internal(ActivationState state)
-	{
-		switch (state)
-		{
-		default:
-		case wi::physics::ActivationState::Active:
-			return ACTIVE_TAG;
-		case wi::physics::ActivationState::Inactive:
-			return DISABLE_SIMULATION;
-		}
-	}
 	void SetActivationState(
 		wi::scene::RigidBodyPhysicsComponent& physicscomponent,
 		ActivationState state
@@ -910,3 +917,4 @@ namespace wi::physics
 		}
 	}
 }
+#endif
