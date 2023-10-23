@@ -51,7 +51,6 @@ endif()
 add_subdirectory(BULLET)
 add_subdirectory(LUA)
 add_subdirectory(Utility)
-add_subdirectory(Jolt)
 
 set(HEADER_FILES
 		WickedEngine.h
@@ -196,6 +195,7 @@ add_library(${TARGET_NAME} ${WICKED_LIBRARY_TYPE}
 	wiNetwork_UWP.cpp
 	wiOcean.cpp
 	wiPhysics_Bullet.cpp
+	wiPhysics_Jolt.cpp
 	wiPhysics_BindLua.cpp
 	wiProfiler.cpp
 	wiRandom.cpp
@@ -230,6 +230,11 @@ target_include_directories(${TARGET_NAME} SYSTEM PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/WickedEngine>
 )
+
+set(PHYSICS_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/Jolt/)
+include(${PHYSICS_REPO_ROOT}/Jolt/Jolt.cmake)
+
+target_link_libraries(${TARGET_NAME} PRIVATE Jolt)
 
 set(WICKEDENGINE_STATIC_LIBRARIES
 	Bullet
@@ -316,24 +321,24 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/Content"
 set_target_properties("${TARGET_NAME}" PROPERTIES EXPORT_NAME "${TARGET_NAME}")
 
 
-install(TARGETS "${TARGET_NAME}" ${WICKEDENGINE_STATIC_LIBRARIES}
-		EXPORT Engine-Targets
-		LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-		ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/WickedEngine"
-		PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/WickedEngine")
+#install(TARGETS "${TARGET_NAME}" ${WICKEDENGINE_STATIC_LIBRARIES}
+#		EXPORT Engine-Targets
+#		LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+#		ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}/WickedEngine"
+#		PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/WickedEngine")
 
 install(FILES ${LIBDXCOMPILER}
 		DESTINATION "${CMAKE_INSTALL_LIBDIR}/WickedEngine")
 
-export(EXPORT Engine-Targets
-		FILE "${CMAKE_BINARY_DIR}/cmake/WickedEngineTargets.cmake"
-		NAMESPACE WickedEngine::
-		)
+#export(EXPORT Engine-Targets
+#		FILE "${CMAKE_BINARY_DIR}/cmake/WickedEngineTargets.cmake"
+#		NAMESPACE WickedEngine::
+#		)
 
-install(EXPORT Engine-Targets
-		FILE WickedEngineTargets.cmake
-		NAMESPACE WickedEngine::
-		DESTINATION ${INSTALL_CONFIGDIR})
+#install(EXPORT Engine-Targets
+#		FILE WickedEngineTargets.cmake
+#		NAMESPACE WickedEngine::
+#		DESTINATION ${INSTALL_CONFIGDIR})
 
 set(_CONFIG_INSTALL_DIR_INCLUDE "${CMAKE_SOURCE_DIR}")
 set(_CONFIG_INSTALL_DIR_LIB "${CMAKE_SOURCE_DIR}")
