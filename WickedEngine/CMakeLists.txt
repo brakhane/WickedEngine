@@ -51,6 +51,7 @@ endif()
 add_subdirectory(BULLET)
 add_subdirectory(LUA)
 add_subdirectory(Utility)
+add_subdirectory(Jolt)
 
 set(HEADER_FILES
 		WickedEngine.h
