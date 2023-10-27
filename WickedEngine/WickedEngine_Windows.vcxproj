@@ -50,6 +50,7 @@
     <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)BUILD\$(Platform)\$(Configuration)\</OutDir>
     <MultiProcFXC>true</MultiProcFXC>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);F:/WickedEngine/WickedEngine/Jolt</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IntDir>$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>

@@ -137,9 +137,9 @@ void TestsRenderer::Load()
 	testSelector.SetText("Demo: ");
 	testSelector.SetSize(XMFLOAT2(140, 20));
 	testSelector.SetPos(XMFLOAT2(50, 220));
+	testSelector.AddItem("HelloWorld", HELLOWORLD);
 	testSelector.AddItem("Physics Test", PHYSICSTEST);
 	testSelector.AddItem("Cloth Physics Test", CLOTHPHYSICSTEST);
-	testSelector.AddItem("HelloWorld", HELLOWORLD);
 	testSelector.AddItem("Model", MODEL);
 	testSelector.AddItem("EmittedParticle 1", EMITTEDPARTICLE1);
 	testSelector.AddItem("EmittedParticle 2", EMITTEDPARTICLE2);
@@ -228,7 +228,7 @@ void TestsRenderer::Load()
 			wi::scene::LoadModel("../Content/models/shadows_test.wiscene", XMMatrixTranslation(0, 1, 0));
 			break;
 		case PHYSICSTEST:
-			wi::profiler::SetEnabled(true);
+			wi::profiler::SetEnabled(false);
 			wi::renderer::SetTemporalAAEnabled(true);
 			wi::scene::LoadModel("../Content/models/physics_test.wiscene");
 			break;

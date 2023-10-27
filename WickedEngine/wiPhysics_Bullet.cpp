@@ -1,5 +1,3 @@
-#if 0
-
 #include "wiPhysics.h"
 #include "wiScene.h"
 #include "wiProfiler.h"
@@ -917,4 +915,3 @@ namespace wi::physics
 		}
 	}
 }
-#endif
