@@ -512,6 +512,7 @@ Luna<Scene_BindLua>::FunctionType Scene_BindLua::methods[] = {
 	lunamethod(Scene_BindLua, Merge),
 	lunamethod(Scene_BindLua, UpdateHierarchy),
 	lunamethod(Scene_BindLua, Intersects),
+	lunamethod(Scene_BindLua, FindAllEntities),
 	lunamethod(Scene_BindLua, Entity_FindByName),
 	lunamethod(Scene_BindLua, Entity_Remove),
 	lunamethod(Scene_BindLua, Entity_Duplicate),
@@ -700,6 +701,26 @@ int Scene_BindLua::Merge(lua_State* L)
 	}
 	return 0;
 }
+
+int Scene_BindLua::FindAllEntities(lua_State* L)
+{
+	wi::unordered_set<wi::ecs::Entity> listOfAllEntities;
+	scene->FindAllEntities(listOfAllEntities);
+		
+	int idx = 1; // lua indexes start at 1
+
+	lua_createtable(L, (int)listOfAllEntities.size(), 0); // fixed size table
+	int entt_table = lua_gettop(L);
+	for (wi::ecs::Entity entity : listOfAllEntities)
+	{
+		wi::lua::SSetLongLong(L, entity);
+		lua_rawseti(L, entt_table, lua_Integer(idx));
+		++idx;
+	}
+	// our table should be already on the stack
+	return 1;
+}
+
 
 int Scene_BindLua::Entity_FindByName(lua_State* L)
 {
@@ -6266,6 +6287,8 @@ Luna<HumanoidComponent_BindLua>::FunctionType HumanoidComponent_BindLua::methods
 	lunamethod(HumanoidComponent_BindLua, GetBoneEntity),
 	lunamethod(HumanoidComponent_BindLua, SetLookAtEnabled),
 	lunamethod(HumanoidComponent_BindLua, SetLookAt),
+	lunamethod(HumanoidComponent_BindLua, SetRagdollPhysicsEnabled),
+	lunamethod(HumanoidComponent_BindLua, IsRagdollPhysicsEnabled),
 	{ NULL, NULL }
 };
 Luna<HumanoidComponent_BindLua>::PropertyType HumanoidComponent_BindLua::properties[] = {
@@ -6330,6 +6353,24 @@ int HumanoidComponent_BindLua::SetLookAt(lua_State* L)
 		wi::lua::SError(L, "SetLookAt(Vector value) not enough arguments!");
 	}
 	return 0;
+}
+int HumanoidComponent_BindLua::SetRagdollPhysicsEnabled(lua_State* L)
+{
+	int argc = wi::lua::SGetArgCount(L);
+	if (argc > 0)
+	{
+		component->SetRagdollPhysicsEnabled(wi::lua::SGetBool(L, 1));
+	}
+	else
+	{
+		wi::lua::SError(L, "SetRagdollPhysicsEnabled(bool value) not enough arguments!");
+	}
+	return 0;
+}
+int HumanoidComponent_BindLua::IsRagdollPhysicsEnabled(lua_State* L)
+{
+	wi::lua::SSetBool(L, component->IsRagdollPhysicsEnabled());
+	return 1;
 }
 
 

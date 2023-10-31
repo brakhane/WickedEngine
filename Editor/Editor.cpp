@@ -467,7 +467,7 @@ void EditorComponent::Load()
 		ss += "Move camera: WASD, or Contoller left stick or D-pad\n";
 		ss += "Look: Middle mouse button / arrow keys / controller right stick\n";
 		ss += "Select: Right mouse button\n";
-		ss += "Interact with water: Left mouse button when nothing is selected\n";
+		ss += "Interact with physics/water: Left mouse button when nothing is selected\n";
 		ss += "Faster camera: Left Shift button or controller R2/RT\n";
 		ss += "Snap transform: Left Ctrl (hold while transforming)\n";
 		ss += "Camera up: E\n";
@@ -494,6 +494,7 @@ void EditorComponent::Load()
 		ss += "Focus on selected: F button, this will make the camera jump to selection.\n";
 		ss += "Inspector mode: I button (hold), hovered entity information will be displayed near mouse position.\n";
 		ss += "Place Instances: Ctrl + Shift + Left mouse click (place clipboard onto clicked surface)\n";
+		ss += "Ragdoll and physics impulse tester: Hold P and click on ragdoll or rigid body physics entity.\n";
 		ss += "Script Console / backlog: HOME button\n";
 		ss += "Bone picking: First select an armature, only then bone picking becomes available. As long as you have an armature or bone selected, bone picking will remain active.\n";
 		ss += "\n";
@@ -784,7 +785,7 @@ void EditorComponent::Update(float dt)
 
 			const float speed = ((wi::input::Down(wi::input::KEYBOARD_BUTTON_LSHIFT) ? 10.0f : 1.0f) + rightTrigger.x * 10.0f) * optionsWnd.cameraWnd.movespeedSlider.GetValue() * clampedDT;
 			XMVECTOR move = XMLoadFloat3(&editorscene.cam_move);
-			XMVECTOR moveNew = XMVectorSet(leftStick.x, 0, leftStick.y, 0);
+			XMVECTOR moveNew = XMVectorSet(0, 0, 0, 0);
 
 			if (!wi::input::Down(wi::input::KEYBOARD_BUTTON_LCONTROL))
 			{
@@ -795,8 +796,9 @@ void EditorComponent::Update(float dt)
 				if (wi::input::Down((wi::input::BUTTON)'S') || wi::input::Down(wi::input::GAMEPAD_BUTTON_DOWN)) { moveNew += XMVectorSet(0, 0, -1, 0); }
 				if (wi::input::Down((wi::input::BUTTON)'E') || wi::input::Down(wi::input::GAMEPAD_BUTTON_2)) { moveNew += XMVectorSet(0, 1, 0, 0); }
 				if (wi::input::Down((wi::input::BUTTON)'Q') || wi::input::Down(wi::input::GAMEPAD_BUTTON_1)) { moveNew += XMVectorSet(0, -1, 0, 0); }
-				moveNew += XMVector3Normalize(moveNew);
+				moveNew = XMVector3Normalize(moveNew);
 			}
+			moveNew += XMVectorSet(leftStick.x, 0, leftStick.y, 0);
 			moveNew *= speed;
 
 			move = XMVectorLerp(move, moveNew, optionsWnd.cameraWnd.accelerationSlider.GetValue() * clampedDT / 0.0166f); // smooth the movement a bit
@@ -1193,6 +1195,52 @@ void EditorComponent::Update(float dt)
 		if (optionsWnd.paintToolWnd.GetMode() == PaintToolWindow::MODE_DISABLED)
 		{
 			// Interact:
+			if (wi::input::Down((wi::input::BUTTON)'P'))
+			{
+				if (wi::input::Press(wi::input::MOUSE_BUTTON_LEFT))
+				{
+					// Physics impulse tester:
+					wi::physics::RayIntersectionResult result = wi::physics::Intersects(scene, pickRay);
+					if (result.IsValid())
+					{
+						XMFLOAT3 impulse;
+						XMStoreFloat3(&impulse, XMVector3Normalize(XMLoadFloat3(&pickRay.direction)) * 20);
+						if (result.humanoid_ragdoll_entity != INVALID_ENTITY)
+						{
+							// Ragdoll:
+							HumanoidComponent* humanoid = scene.humanoids.GetComponent(result.humanoid_ragdoll_entity);
+							if (humanoid != nullptr)
+							{
+								humanoid->SetRagdollPhysicsEnabled(true);
+								wi::physics::ApplyImpulse(*humanoid, result.humanoid_bone, impulse);
+							}
+						}
+						else
+						{
+							// Rigidbody:
+							RigidBodyPhysicsComponent* rigidbody = scene.rigidbodies.GetComponent(result.entity);
+							if (rigidbody != nullptr)
+							{
+								wi::physics::ApplyImpulse(*rigidbody, impulse);
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				// Physics pick dragger:
+				if (wi::input::Down(wi::input::MOUSE_BUTTON_LEFT))
+				{
+					wi::physics::PickDrag(scene, pickRay, physicsDragOp);
+				}
+				else
+				{
+					physicsDragOp = {};
+				}
+			}
+
+			// Other:
 			if (hovered.entity != INVALID_ENTITY && wi::input::Down(wi::input::MOUSE_BUTTON_LEFT))
 			{
 				if (dummy_enabled && translator.selected.empty())
@@ -1297,7 +1345,7 @@ void EditorComponent::Update(float dt)
 				{
 					// Union selection:
 					wi::vector<wi::scene::PickResult> saved = translator.selected;
-					translator.selected.clear(); 
+					translator.selected.clear();
 					for (const wi::scene::PickResult& picked : saved)
 					{
 						AddSelected(picked);
@@ -1975,10 +2023,7 @@ void EditorComponent::Render() const
 						RenderPassImage::DepthStencil(
 							renderPath->GetDepthStencil(),
 							RenderPassImage::LoadOp::LOAD,
-							RenderPassImage::StoreOp::STORE,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY
+							RenderPassImage::StoreOp::STORE
 						),
 					};
 					device->RenderPassBegin(rp, arraysize(rp), cmd);
@@ -1990,10 +2035,7 @@ void EditorComponent::Render() const
 						RenderPassImage::DepthStencil(
 							renderPath->GetDepthStencil(),
 							RenderPassImage::LoadOp::LOAD,
-							RenderPassImage::StoreOp::STORE,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY
+							RenderPassImage::StoreOp::STORE
 						),
 					};
 					device->RenderPassBegin(rp, arraysize(rp), cmd);
@@ -2016,10 +2058,7 @@ void EditorComponent::Render() const
 						RenderPassImage::DepthStencil(
 							renderPath->GetDepthStencil(),
 							RenderPassImage::LoadOp::LOAD,
-							RenderPassImage::StoreOp::STORE,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY
+							RenderPassImage::StoreOp::STORE
 						),
 					};
 					device->RenderPassBegin(rp, arraysize(rp), cmd);
@@ -2031,10 +2070,7 @@ void EditorComponent::Render() const
 						RenderPassImage::DepthStencil(
 							renderPath->GetDepthStencil(),
 							RenderPassImage::LoadOp::LOAD,
-							RenderPassImage::StoreOp::STORE,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY,
-							ResourceState::DEPTHSTENCIL_READONLY
+							RenderPassImage::StoreOp::STORE
 						),
 					};
 					device->RenderPassBegin(rp, arraysize(rp), cmd);

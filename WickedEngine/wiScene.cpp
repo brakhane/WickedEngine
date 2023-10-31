@@ -170,8 +170,6 @@ namespace wi::scene
 			queryAllocator.store(0);
 		}
 
-		wi::physics::RunPhysicsUpdateSystem(ctx, *this, dt);
-
 		if (dt > 0)
 		{
 			// Scan objects to check if lightmap rendering is requested:
@@ -211,6 +209,8 @@ namespace wi::scene
 		}
 
 		RunAnimationUpdateSystem(ctx);
+
+		wi::physics::RunPhysicsUpdateSystem(ctx, *this, dt);
 
 		RunTransformUpdateSystem(ctx);
 
@@ -4905,14 +4905,7 @@ namespace wi::scene
 			}
 		}
 
-		// Construct a matrix that will orient to position (P) according to surface normal (N):
-		XMVECTOR N = XMLoadFloat3(&result.normal);
-		XMVECTOR P = XMLoadFloat3(&result.position);
-		XMVECTOR E = XMLoadFloat3(&ray.origin);
-		XMVECTOR T = XMVector3Normalize(XMVector3Cross(N, P - E));
-		XMVECTOR B = XMVector3Normalize(XMVector3Cross(T, N));
-		XMMATRIX M = { T, N, B, P };
-		XMStoreFloat4x4(&result.orientation, M);
+		result.orientation = ray.GetPlacementOrientation(result.position, result.normal);
 
 		return result;
 	}
@@ -5149,7 +5142,7 @@ namespace wi::scene
 					XMFLOAT3 center_local;
 					float radius_local;
 					XMStoreFloat3(&center_local, XMVector3Transform(XMLoadFloat3(&sphere.center), objectMatInverse));
-					XMStoreFloat(&radius_local, XMVector3TransformNormal(XMLoadFloat(&sphere.radius), objectMatInverse));
+					XMStoreFloat(&radius_local, XMVector3Length(XMVector3TransformNormal(XMLoadFloat(&sphere.radius), objectMatInverse)));
 					Sphere sphere_local = Sphere(center_local, radius_local);
 
 					mesh->bvh.Intersects(sphere_local, 0, [&](uint32_t index) {
@@ -5187,14 +5180,7 @@ namespace wi::scene
 			}
 		}
 
-		// Construct a matrix that will orient to position (P) according to surface normal (N):
-		XMVECTOR N = XMLoadFloat3(&result.normal);
-		XMVECTOR P = XMLoadFloat3(&result.position);
-		XMVECTOR E = Center - P;
-		XMVECTOR T = XMVector3Normalize(XMVector3Cross(N, P - E));
-		XMVECTOR B = XMVector3Normalize(XMVector3Cross(T, N));
-		XMMATRIX M = { T, N, B, P };
-		XMStoreFloat4x4(&result.orientation, M);
+		result.orientation = sphere.GetPlacementOrientation(result.position, result.normal);
 
 		return result;
 	}
@@ -5552,7 +5538,7 @@ namespace wi::scene
 					float radius_local;
 					XMStoreFloat3(&base_local, XMVector3Transform(XMLoadFloat3(&capsule.base), objectMat_Inverse));
 					XMStoreFloat3(&tip_local, XMVector3Transform(XMLoadFloat3(&capsule.tip), objectMat_Inverse));
-					XMStoreFloat(&radius_local, XMVector3TransformNormal(XMLoadFloat(&capsule.radius), objectMat_Inverse));
+					XMStoreFloat(&radius_local, XMVector3Length(XMVector3TransformNormal(XMLoadFloat(&capsule.radius), objectMat_Inverse)));
 					AABB capsule_local_aabb = Capsule(base_local, tip_local, radius_local).getAABB();
 
 					mesh->bvh.Intersects(capsule_local_aabb, 0, [&](uint32_t index){
@@ -5590,14 +5576,7 @@ namespace wi::scene
 			}
 		}
 
-		// Construct a matrix that will orient to position (P) according to surface normal (N):
-		XMVECTOR N = XMLoadFloat3(&result.normal);
-		XMVECTOR P = XMLoadFloat3(&result.position);
-		XMVECTOR E = Axis;
-		XMVECTOR T = XMVector3Normalize(XMVector3Cross(N, P - E));
-		XMVECTOR Binorm = XMVector3Normalize(XMVector3Cross(T, N));
-		XMMATRIX M = { T, N, Binorm, P };
-		XMStoreFloat4x4(&result.orientation, M);
+		result.orientation = capsule.GetPlacementOrientation(result.position, result.normal);
 
 		return result;
 	}
@@ -5897,6 +5876,29 @@ namespace wi::scene
 			return retarget_entity;
 		}
 		return INVALID_ENTITY;
+	}
+
+	XMMATRIX Scene::FindBoneRestPose(wi::ecs::Entity bone) const
+	{
+		if (bone != INVALID_ENTITY)
+		{
+			for (size_t i = 0; i < armatures.GetCount(); ++i)
+			{
+				const ArmatureComponent& armature = armatures[i];
+				int boneIndex = -1;
+				for (auto& x : armature.boneCollection)
+				{
+					boneIndex++;
+					if (x == bone)
+					{
+						XMMATRIX inverseBindMatrix = XMLoadFloat4x4(armature.inverseBindMatrices.data() + boneIndex);
+						XMMATRIX bindMatrix = XMMatrixInverse(nullptr, inverseBindMatrix);
+						return bindMatrix;
+					}
+				}
+			}
+		}
+		return XMMatrixIdentity();
 	}
 
 	void Scene::ScanAnimationDependencies()

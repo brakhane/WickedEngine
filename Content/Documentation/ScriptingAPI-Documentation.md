@@ -154,7 +154,7 @@ You can use the Renderer with the following functions, all of which are in the g
 ### Sprite
 Render images on the screen.
 - Params : ImageParams
-- Anim : SpriteAnim 
+- Anim : SpriteAnim
 
 </br>
 
@@ -271,6 +271,8 @@ Animate Sprites easily with this helper.
 - SetRotation(float val)
 - SetOpacity(float val)
 - SetFade(float val)
+- SetWobbleAnimAmount(float val)
+- SetWobbleAnimSpeed(float val)
 - SetRepeatable(boolean val)
 - SetVelocity(Vector val)
 - SetScaleX(float val)
@@ -385,6 +387,55 @@ Gives you the ability to render text with a custom font.
 ### Texture
 Just holds texture information in VRAM.
 - [constructor]Texture(opt string filename)	-- creates a texture from file
+- [outer]texturehelper -- a global helper texture creation utility
+- GetLogo() : Texture -- returns the Wicked Engine logo texture
+- CreateGradientTexture(
+	GradientType type = GradientType.Linear, 
+	int width = 256,
+	int height = 256, 
+	Vector uv_start = Vector(0,0),
+	Vector uv_end = Vector(0,0), 
+	GradientFlags flags = GradientFlags.None, 
+	string swizzle = "rgba", 
+	float perlin_scale = 1,
+	int perlin_seed = 1234, 
+	int perlin_octaves = 8, 
+	float perlin_persistence = 0.5) -- creates a gradient texture from parameters
+- Save(string filename) -- saves texture into a file. Provide the extension in the filename, it should be one of the following: .JPG, .PNG, .TGA, .BMP, .DDS, .KTX2, .BASISGradient
+
+```lua
+GradientType = {
+	Linear = 0,
+	Circular = 1,
+	Angular = 2,
+}
+
+GradientFlags = {
+	None = 0,
+	Inverse = 1 << 0,	
+	Smoothstep = 1 << 1,
+	PerlinNoise = 1 << 2,
+	R16Unorm = 1 << 3,
+}
+```
+
+Example texture creation:
+```lua
+texture = texturehelper.CreateGradientTexture(
+	GradientType.Circular, -- gradient type
+	256, 256, -- resolution of the texture
+	Vector(0.5, 0.5), Vector(0.5, 0), -- start and end uv coordinates will specify the gradient direction and extents
+	GradientFlags.Inverse | GradientFlags.Smoothstep | GradientFlags.PerlinNoise, -- modifier flags bitwise combination
+	"rrr1", -- for each channel ,you can specify one of the following characters: 0, 1, r, g, b, a
+	2, -- perlin noise scale
+	123, -- perlin noise seed
+	6, -- perlin noise octaves
+	0.8 -- perlin noise persistence
+)
+texture.Save("gradient.png") -- you can save it to file
+sprite.SetTexture(texture) -- you can set it to a sprite
+material.SetTexture(TextureSlot.BASECOLORMAP, texture) -- you can set it to a material
+```
 
 ### Audio
 Loads and plays an audio files.
@@ -405,6 +456,7 @@ Loads and plays an audio files.
 #### Sound
 An audio file. Can be instanced several times via SoundInstance.
 - [constructor]Sound()  -- creates an empty sound. Use the audio device to load sounds from files
+- IsValid() : bool -- returns whether the sound was created successfully
 
 #### SoundInstance
 An audio file instance that can be played. Note: after modifying parameters of the SoundInstance, the SoundInstance will need to be recreated from a specified sound
@@ -423,6 +475,7 @@ An audio file instance that can be played. Note: after modifying parameters of t
 - GetLoopLength() : float
 - IsEnableReverb() : bool
 - IsLooped() : bool
+- IsValid() : bool -- returns whether the sound instance was created successfully
 
 #### SoundInstance3D
 Describes the relation between a sound instance and a listener in a 3D world
@@ -578,6 +631,7 @@ The scene holds components. Entity handles can be used to retrieve associated co
 - UpdateHierarchy()	-- updates the full scene hierarchy system. Useful if you modified for example a parent transform and children immediately need up to date result in the script
 
 - CreateEntity() : int entity  -- creates an empty entity and returns it
+- FindAllEntities() : table[entities] -- returns a table with all the entities present in the given scene
 - Entity_FindByName(string value, opt Entity ancestor = INVALID_ENTITY) : int entity  -- returns an entity ID if it exists, and INVALID_ENTITY otherwise. You can specify an ancestor entity if you only want to find entities that are descendants of ancestor entity
 - Entity_Remove(Entity entity, bool recursive = true, bool keep_sorted = false)  -- removes an entity and deletes all its components if it exists. If recursive is specified, then all children will be removed as well (enabled by default). If keep_sorted is specified, then component order will be kept (disabled by default, slower)
 - Entity_Duplicate(Entity entity) : int entity  -- duplicates all of an entity's components and creates a new entity with them. Returns the clone entity handle
@@ -1209,6 +1263,8 @@ Describes a Collider object.
 - GetBoneEntity(HumanoidBone bone) : int	-- Get the entity that is mapped to the specified humanoid bone. Use HumanoidBone table to get access to humanoid bone values
 - SetLookAtEnabled(bool value)	-- Enable/disable automatic lookAt (for head and eyes movement)
 - SetLookAt(Vector value)	-- Set a target lookAt position (for head an eyes movement)
+- SetRagdollPhysicsEnabled(bool value) -- Activate dynamic ragdoll physics. Note that kinematic ragdoll physics is always active (ragdoll is animation-driven/kinematic by default).
+- IsRagdollPhysicsEnabled() : bool
 
 [outer] HumanoidBone = {
 	Hips = 0,
@@ -1428,6 +1484,7 @@ A ray is defined by an origin Vector and a normalized direction Vector. It can b
 - SetOrigin(Vector vector)
 - SetDirection(Vector vector)
 - CreateFromPoints(Vector a,b)	-- creates a ray from two points. Point a will be the ray origin, pointing towards point b
+- GetSurfaceOrientation(Vector position, normal) : Matrix -- compute placement orientation matrix at intersection result. This matrix can be used to place entities in the scene oriented on the surface.
 
 #### AABB
 Axis Aligned Bounding Box. Can be intersected with other primitives.
@@ -1465,6 +1522,7 @@ Sphere defined by center Vector and radius. Can be intersected with other primit
 - GetRadius() : float result
 - SetCenter(Vector value)
 - SetRadius(float value)
+- GetSurfaceOrientation(Vector position, normal) : Matrix -- compute placement orientation matrix at intersection result. This matrix can be used to place entities in the scene oriented on the surface.
 
 #### Capsule
 It's like two spheres connected by a cylinder. Base and Tip are the two endpoints, radius is the cylinder's radius.
@@ -1485,6 +1543,7 @@ It's like two spheres connected by a cylinder. Base and Tip are the two endpoint
 - SetBase(Vector value)
 - SetTip(Vector value)
 - SetRadius(float value)
+- GetSurfaceOrientation(Vector position, normal) : Matrix -- compute placement orientation matrix at intersection result. This matrix can be used to place entities in the scene oriented on the surface.
 
 ### Input
 Query input devices
@@ -1633,10 +1692,21 @@ Playstation button codes:
 - ApplyForce(RigidBodyPhysicsComponent component, Vector force)	-- Apply force at body center
 - ApplyForceAt(RigidBodyPhysicsComponent component, Vector force, Vector at)	-- Apply force at body local position
 - ApplyImpulse(RigidBodyPhysicsComponent component, Vector impulse)	-- Apply impulse at body center
+- ApplyImpulse(HumanoidComponent humanoid, HumanoidBone bone, Vector impulse)	-- Apply impulse at body center of ragdoll bone
 - ApplyImpulseAt(RigidBodyPhysicsComponent component, Vector impulse, Vector at)	-- Apply impulse at body local position
+- ApplyImpulseAt(HumanoidComponent humanoid, HumanoidBone bone, Vector impulse, Vector at)	-- Apply impulse at body local position of ragdoll bone
 - ApplyTorque(RigidBodyPhysicsComponent component, Vector torque)	-- Apply torque at body center
 - ApplyTorqueImpulse(RigidBodyPhysicsComponent component, Vector torque)	-- Apply torque impulse at body center
 - SetActivationState(RigidBodyPhysicsComponent component, int state)	-- Force set activation state to rigid body. Use a value ACTIVATION_STATE_ACTIVE or ACTIVATION_STATE_INACTIVE
 - SetActivationState(SoftBodyPhysicsComponent component, int state)	-- Force set activation state to soft body. Use a value ACTIVATION_STATE_ACTIVE or ACTIVATION_STATE_INACTIVE
 - [outer]ACTIVATION_STATE_ACTIVE : int
 - [outer]ACTIVATION_STATE_INACTIVE : int
+
+- Intersects(Scene scene, Ray ray) : Entity entity, Vector position,normal, Entity humanoid_ragdoll_entity, HumanoidBone humanoid_bone, Vector position_local	-- Performns physics scene intersection for closest hit with a ray
+
+- PickDrag(Scene scene, Ray, ray, PickDragOperation op) -- pick and drag physics objects such as ragdolls and rigid bodies.
+
+#### PickDragOperation
+Tracks a physics pick drag operation. Use it with `phyiscs.PickDrag()` function. When using this object first time to PickDrag, the operation will be started and the operation will end when you call Finish() or when the object is destroyed
+- [constructor]PickDragOperation() -- creates the object
+- Finish() -- finish the operation, puts down the physics object

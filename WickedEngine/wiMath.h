@@ -32,6 +32,10 @@ namespace wi::math
 	static constexpr XMFLOAT4X4 IDENTITY_MATRIX = XMFLOAT4X4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 	static constexpr float PI = XM_PI;
 
+	inline bool float_equal(float f1, float f2) {
+		return (std::abs(f1 - f2) <= std::numeric_limits<float>::epsilon() * std::max(std::abs(f1), std::abs(f2)));
+	}
+
 	constexpr float saturate(float x) { return std::min(std::max(x, 0.0f), 1.0f); }
 
 	inline float Length(const XMFLOAT2& v)
@@ -113,7 +117,7 @@ namespace wi::math
 	}
 	constexpr float InverseLerp(float value1, float value2, float pos)
 	{
-		return (pos - value1) / (value2 - value1);
+		return value2 == value1 ? 0 : ((pos - value1) / (value2 - value1));
 	}
 	constexpr XMFLOAT2 InverseLerp(const XMFLOAT2& value1, const XMFLOAT2& value2, const XMFLOAT2& pos)
 	{

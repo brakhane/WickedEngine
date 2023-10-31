@@ -39,6 +39,7 @@ namespace wi::lua::scene
 
 		int Intersects(lua_State* L);
 
+		int FindAllEntities(lua_State* L);
 		int Entity_FindByName(lua_State* L);
 		int Entity_Remove(lua_State* L);
 		int Entity_Duplicate(lua_State* L);
@@ -1710,6 +1711,8 @@ namespace wi::lua::scene
 		int GetBoneEntity(lua_State* L);
 		int SetLookAtEnabled(lua_State* L);
 		int SetLookAt(lua_State* L);
+		int SetRagdollPhysicsEnabled(lua_State* L);
+		int IsRagdollPhysicsEnabled(lua_State* L);
 	};
 
 	class DecalComponent_BindLua
