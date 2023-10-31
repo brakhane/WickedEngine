@@ -194,7 +194,7 @@ add_library(${TARGET_NAME} ${WICKED_LIBRARY_TYPE}
 	wiNetwork_Windows.cpp
 	wiNetwork_UWP.cpp
 	wiOcean.cpp
-	wiPhysics_Bullet.cpp
+	# wiPhysics_Bullet.cpp
 	wiPhysics_Jolt.cpp
 	wiPhysics_BindLua.cpp
 	wiProfiler.cpp

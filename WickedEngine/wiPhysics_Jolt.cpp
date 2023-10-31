@@ -198,7 +198,7 @@ namespace wi::physics
 	}
 	using namespace jolt;
 
-	
+
 	void Initialize()
 	{
 		wi::Timer timer;
@@ -271,7 +271,7 @@ namespace wi::physics
 
 		const BodyLockInterface& bli = psys.GetBodyLockInterface();
 
-		for (const BodyID& id : body_ids) 
+		for (const BodyID& id : body_ids)
 		{
 			BodyLockRead lock(bli, id);
 			if (lock.Succeeded())
@@ -318,12 +318,22 @@ namespace wi::physics
 		const XMFLOAT3& impulse
 	) {}
 
+	void ApplyImpulse(
+		wi::scene::HumanoidComponent& humanoid,
+		wi::scene::HumanoidComponent::HumanoidBone bone,
+		const XMFLOAT3& impulse
+	) {}
 	void ApplyImpulseAt(
 		wi::scene::RigidBodyPhysicsComponent& physicscomponent,
 		const XMFLOAT3& impulse,
 		const XMFLOAT3& at
 	) {}
-
+	void ApplyImpulseAt(
+		wi::scene::HumanoidComponent& humanoid,
+		wi::scene::HumanoidComponent::HumanoidBone bone,
+		const XMFLOAT3& impulse,
+		const XMFLOAT3& at
+	) {}
 	void ApplyTorque(
 		wi::scene::RigidBodyPhysicsComponent& physicscomponent,
 		const XMFLOAT3& torque
@@ -340,6 +350,15 @@ namespace wi::physics
 	void SetActivationState(
 		wi::scene::SoftBodyPhysicsComponent& physicscomponent,
 		ActivationState state
+	) {}
+	RayIntersectionResult Intersects(
+		const wi::scene::Scene& scene,
+		wi::primitive::Ray ray
+	) {return RayIntersectionResult();}
+	void PickDrag(
+		const wi::scene::Scene& scene,
+		wi::primitive::Ray ray,
+		PickDragOperation& op
 	) {}
 
 }
