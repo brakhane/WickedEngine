@@ -134,7 +134,7 @@ namespace wi::physics
 					points.reserve(mesh->vertex_positions.size());
 					for (auto& pos : mesh->vertex_positions)
 					{
-						points.emplace_back(Vec3(pos.x, pos.y, pos.z) * scale);
+						points.emplace_back(to<Vec3>(pos) * scale);
 					}
 					shape = ConvexHullShapeSettings(points).Create().Get();
 					//shape = new ScaledShape(shape, scale);
