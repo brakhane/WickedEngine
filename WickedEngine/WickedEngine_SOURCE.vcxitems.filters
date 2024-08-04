@@ -58,6 +58,12 @@
     <Filter Include="UTILITY\meshoptimizer">
       <UniqueIdentifier>{5634b6ae-7f51-48ed-8a33-a5be8a31a56b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TRACY">
+      <UniqueIdentifier>{90cc2aa0-67ee-4464-8c54-555f008a89f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TRACY\tracy">
+      <UniqueIdentifier>{95ddd177-3b9f-4726-82e8-41fd734cd3c6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)LUA\lapi.h">
@@ -1380,6 +1386,30 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)Utility\meshoptimizer\meshoptimizer.h">
       <Filter>UTILITY\meshoptimizer</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\Tracy.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyC.h">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyD3D11.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyD3D12.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyLua.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyOpenCL.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyOpenGL.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyVulkan.hpp">
+      <Filter>TRACY\tracy</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)LUA\lapi.c">
@@ -2191,6 +2221,9 @@
     </ClCompile>
     <ClCompile Include="$(MSBuildThisFileDirectory)Utility\meshoptimizer\vfetchoptimizer.cpp">
       <Filter>UTILITY\meshoptimizer</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\tracy\public\TracyClient.cpp">
+      <Filter>TRACY</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

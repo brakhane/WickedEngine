@@ -10,6 +10,8 @@
 #include "wiEventHandler.h"
 #include "wiTimer.h"
 
+#include <tracy/TracyC.h>
+
 //#define BVH_VALIDATE // slow but great for debug!
 
 using namespace wi::graphics;

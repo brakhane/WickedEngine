@@ -20,6 +20,7 @@
 #include <fstream>
 #include <mutex>
 
+#include <tracy/Tracy.hpp>
 using namespace wi::enums;
 using namespace wi::graphics;
 
@@ -113,7 +114,7 @@ namespace wi::font
 		};
 		static_assert(sizeof(GlyphHash) == sizeof(uint32_t));
 		static wi::unordered_set<uint32_t> pendingGlyphs;
-		static std::mutex locker;
+		static TracyLockable(std::mutex, locker);
 
 		struct ParseStatus
 		{

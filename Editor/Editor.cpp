@@ -1074,7 +1074,7 @@ void EditorComponent::FixedUpdate()
 }
 void EditorComponent::Update(float dt)
 {
-	wi::profiler::range_id profrange = wi::profiler::BeginRangeCPU("Editor Update");
+	wi::profiler::range_t profrange = wi::profiler::BeginRangeCPU("Editor Update");
 
 	if (wi::input::Press(wi::input::KEYBOARD_BUTTON_F2))
 	{

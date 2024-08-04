@@ -29,6 +29,8 @@
 #include <cstdlib>
 #include <atomic>
 
+#include "tracy/Tracy.hpp"
+
 //#define WICKED_ENGINE_HEAP_ALLOCATION_COUNTER
 
 #ifdef WICKED_ENGINE_HEAP_ALLOCATION_COUNTER
@@ -291,6 +293,7 @@ namespace wi
 
 	void Application::Update(float dt)
 	{
+		ZoneScoped;
 		auto range = wi::profiler::BeginRangeCPU("Update");
 
 		infoDisplay.rect = {};
@@ -313,6 +316,7 @@ namespace wi
 
 	void Application::FixedUpdate()
 	{
+		ZoneScoped;
 		wi::lua::FixedUpdate();
 
 		if (GetActivePath() != nullptr)
@@ -337,6 +341,7 @@ namespace wi
 
 	void Application::Compose(CommandList cmd)
 	{
+		ZoneScoped;
 		auto range = wi::profiler::BeginRangeCPU("Compose");
 		ColorSpace colorspace = graphicsDevice->GetSwapChainColorSpace(&swapChain);
 

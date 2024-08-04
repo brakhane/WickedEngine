@@ -37,6 +37,8 @@
 #include <Jolt/Physics/Ragdoll/Ragdoll.h>
 #include <Jolt/Skeleton/Skeleton.h>
 
+#include <tracy/Tracy.hpp>
+
 #ifdef JPH_DEBUG_RENDERER
 #include <Jolt/Renderer/DebugRendererSimple.h>
 #endif // JPH_DEBUG_RENDERER
@@ -116,6 +118,7 @@ namespace wi::physics
 		public:
 			bool ShouldCollide(ObjectLayer inObject1, ObjectLayer inObject2) const override
 			{
+				ZoneScoped;
 				switch (inObject1)
 				{
 				case Layers::NON_MOVING:
@@ -213,6 +216,7 @@ namespace wi::physics
 		};
 		PhysicsScene& GetPhysicsScene(Scene& scene)
 		{
+			ZoneScoped;
 			if (scene.physics_scene == nullptr)
 			{
 				auto physics_scene = std::make_shared<PhysicsScene>();
@@ -319,6 +323,8 @@ namespace wi::physics
 			const wi::scene::MeshComponent* mesh
 		)
 		{
+			ZoneScoped;
+
 			ShapeSettings::ShapeResult shape_result;
 
 			// The default convex radius caused issues when creating small box shape, etc, so I decrease it:
@@ -489,6 +495,8 @@ namespace wi::physics
 			wi::scene::MeshComponent& mesh
 		)
 		{
+			ZoneScoped;
+
 			SoftBody& physicsobject = GetSoftBody(physicscomponent);
 			physicsobject.physics_scene = scene.physics_scene;
 			physicsobject.entity = entity;
@@ -609,6 +617,8 @@ namespace wi::physics
 
 			Ragdoll(Scene& scene, HumanoidComponent& humanoid, Entity humanoidEntity, float scale)
 			{
+				ZoneScoped;
+
 				physics_scene = scene.physics_scene;
 				PhysicsSystem& physics_system = ((PhysicsScene*)physics_scene.get())->physics_system;
 				BodyInterface& body_interface = physics_system.GetBodyInterface(); // locking version because this is called from job system!
@@ -1054,6 +1064,8 @@ namespace wi::physics
 				Entity humanoidEntity
 			)
 			{
+				ZoneScoped;
+
 				if (state_active)
 					return;
 				state_active = true;
@@ -1103,6 +1115,8 @@ namespace wi::physics
 				Scene& scene
 			)
 			{
+				ZoneScoped;
+
 				if (!state_active)
 					return;
 				state_active = false;
@@ -1129,6 +1143,8 @@ namespace wi::physics
 
 	void Initialize()
 	{
+		ZoneScoped;
+
 		wi::Timer timer;
 
 		RegisterDefaultAllocator();
@@ -1166,6 +1182,8 @@ namespace wi::physics
 		float dt
 	)
 	{
+		ZoneScoped;
+
 		if (!IsEnabled() || dt <= 0)
 			return;
 
@@ -1308,6 +1326,7 @@ namespace wi::physics
 
 		// System will register softbodies to meshes and update physics engine state:
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.softbodies.GetCount(), 1, [&scene, &physics_scene](wi::jobsystem::JobArgs args) {
+			ZoneScoped;
 
 			SoftBodyPhysicsComponent& physicscomponent = scene.softbodies[args.jobIndex];
 			Entity entity = scene.softbodies.GetEntity(args.jobIndex);
@@ -1375,6 +1394,8 @@ namespace wi::physics
 
 		// Ragdoll management:
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.humanoids.GetCount(), 1, [&scene, &physics_scene](wi::jobsystem::JobArgs args) {
+			ZoneScoped;
+
 			HumanoidComponent& humanoid = scene.humanoids[args.jobIndex];
 			Entity humanoidEntity = scene.humanoids.GetEntity(args.jobIndex);
 			float scale = 1;
@@ -1570,6 +1591,7 @@ namespace wi::physics
 
 		// Feedback physics objects to system:
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.rigidbodies.GetCount(), 64, [&scene, &physics_scene](wi::jobsystem::JobArgs args) {
+			ZoneScoped;
 
 			RigidBodyPhysicsComponent& physicscomponent = scene.rigidbodies[args.jobIndex];
 			if (physicscomponent.physicsobject == nullptr)
@@ -1603,6 +1625,7 @@ namespace wi::physics
 		});
 		
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.softbodies.GetCount(), 1, [&scene, &physics_scene](wi::jobsystem::JobArgs args) {
+			ZoneScoped;
 
 			SoftBodyPhysicsComponent& physicscomponent = scene.softbodies[args.jobIndex];
 			if (physicscomponent.physicsobject == nullptr)
@@ -1659,6 +1682,8 @@ namespace wi::physics
 		});
 
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.humanoids.GetCount(), 1, [&scene, &physics_scene](wi::jobsystem::JobArgs args) {
+			ZoneScoped;
+
 			HumanoidComponent& humanoid = scene.humanoids[args.jobIndex];
 			if (humanoid.ragdoll == nullptr)
 				return;
@@ -2027,6 +2052,8 @@ namespace wi::physics
 		wi::primitive::Ray ray
 	)
 	{
+		ZoneScoped;
+
 		RayIntersectionResult result;
 		if (scene.physics_scene == nullptr)
 			return result;

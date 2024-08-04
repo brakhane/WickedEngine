@@ -7,6 +7,8 @@
 
 #include <mutex>
 
+#include <tracy/Tracy.hpp>
+
 #ifdef PLATFORM_WINDOWS_DESKTOP
 #define SHADERCOMPILER_ENABLED
 #define SHADERCOMPILER_ENABLED_DXCOMPILER
@@ -806,7 +808,7 @@ namespace wi::shadercompiler
 		return false;
 	}
 
-	std::mutex locker;
+	TracyLockable(std::mutex, locker);
 	wi::unordered_set<std::string> registered_shaders;
 	void RegisterShader(const std::string& shaderfilename)
 	{

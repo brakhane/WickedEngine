@@ -37,6 +37,8 @@
 #include <atomic>
 #include <mutex>
 
+#include "tracy/Tracy.hpp"
+
 using namespace wi::primitive;
 using namespace wi::graphics;
 using namespace wi::enums;
@@ -390,7 +392,7 @@ wi::jobsystem::context objectps_ctx;
 wi::vector<CustomShader> customShaders;
 int RegisterCustomShader(const CustomShader& customShader)
 {
-	static std::mutex locker;
+	static TracyLockable(std::mutex, locker);
 	std::scoped_lock lck(locker);
 	int result = (int)customShaders.size();
 	customShaders.push_back(customShader);
@@ -2576,7 +2578,7 @@ const GPUBuffer& GetIndexBufferForQuads(uint32_t max_quad_count)
 {
 	const size_t required_max_index = max_quad_count * 4u;
 
-	static std::mutex locker;
+	static TracyLockable(std::mutex, locker);
 	std::scoped_lock lock(locker);
 
 	if (required_max_index < 65536u)
@@ -2691,6 +2693,7 @@ void ReloadShaders()
 
 void Initialize()
 {
+	ZoneScoped;
 	wi::Timer timer;
 
 	SetUpStates();
@@ -2704,6 +2707,7 @@ void Initialize()
 }
 void ClearWorld(Scene& scene)
 {
+	ZoneScoped;
 	scene.Clear();
 }
 
@@ -2738,6 +2742,7 @@ inline void CreateSpotLightShadowCam(const LightComponent& light, SHCAM& shcam)
 }
 inline void CreateDirLightShadowCams(const LightComponent& light, CameraComponent camera, SHCAM* shcams, size_t shcam_count, const wi::rectpacker::Rect& shadow_rect)
 {
+	ZoneScoped;
 	// remove camera jittering
 	camera.jitter = XMFLOAT2(0, 0);
 	camera.UpdateCamera();
@@ -2840,6 +2845,7 @@ inline void CreateCubemapCameras(const XMFLOAT3& position, float zNearP, float z
 
 ForwardEntityMaskCB ForwardEntityCullingCPU(const Visibility& vis, const AABB& batch_aabb, RENDERPASS renderPass)
 {
+	ZoneScoped;
 	// Performs CPU light culling for a renderable batch:
 	//	Similar to GPU-based tiled light culling, but this is only for simple forward passes (drawcall-granularity)
 
@@ -2894,6 +2900,7 @@ ForwardEntityMaskCB ForwardEntityCullingCPU(const Visibility& vis, const AABB& b
 
 void Workaround(const int bug , CommandList cmd)
 {
+	ZoneScoped;
 	if (bug == 1)
 	{
 		//PE: Strange DX12 bug, we must change the pso/pipeline state, just one time.
@@ -2929,6 +2936,7 @@ void RenderMeshes(
 	uint32_t camera_count = 1
 )
 {
+	ZoneScoped;
 	if (renderQueue.empty())
 		return;
 
@@ -3223,6 +3231,7 @@ void RenderImpostors(
 	CommandList cmd
 )
 {
+	ZoneScoped;
 	const PipelineState* pso = &PSO_impostor[renderPass];
 	if (IsWireRender())
 	{
@@ -4583,10 +4592,11 @@ void UpdateRenderData(
 	CommandList cmd
 )
 {
+	ZoneScoped;
 	device->EventBegin("UpdateRenderData", cmd);
 
 	auto prof_updatebuffer_cpu = wi::profiler::BeginRangeCPU("Update Buffers (CPU)");
-	auto prof_updatebuffer_gpu = wi::profiler::BeginRangeGPU("Update Buffers (GPU)", cmd);
+	//auto prof_updatebuffer_gpu = wi::profiler::BeginRangeGPU("Update Buffers (GPU)", cmd);
 
 	barrier_stack.push_back(GPUBarrier::Buffer(&buffers[BUFFERTYPE_FRAMECB], ResourceState::CONSTANT_BUFFER, ResourceState::COPY_DST));
 	if (vis.scene->instanceBuffer.IsValid())
@@ -4677,7 +4687,7 @@ void UpdateRenderData(
 	barrier_stack_flush(cmd);
 
 	wi::profiler::EndRange(prof_updatebuffer_cpu);
-	wi::profiler::EndRange(prof_updatebuffer_gpu);
+	//wi::profiler::EndRange(prof_updatebuffer_gpu);
 
 	BindCommonResources(cmd);
 
@@ -4689,6 +4699,7 @@ void UpdateRenderData(
 	}
 
 	{
+		ZoneScopedN("Wind");
 		auto range = wi::profiler::BeginRangeGPU("Wind", cmd);
 		device->EventBegin("Wind", cmd);
 		if (
@@ -8389,7 +8400,7 @@ void RefreshEnvProbes(const Visibility& vis, CommandList cmd)
 			uint32_t raw;
 		};
 		static wi::unordered_map<uint32_t, Texture> render_textures;
-		static std::mutex locker;
+		static TracyLockable(std::mutex, locker);
 		{
 			const uint32_t required_sample_count = probe.IsMSAA() ? EnvironmentProbeComponent::envmapMSAASampleCount : 1;
 
@@ -9857,7 +9868,7 @@ void BlockCompress(const Texture& texture_src, const Texture& texture_bc, Comman
 	Texture bc_raw_dest;
 	{
 		// Find a raw block texture that will fit the request:
-		static std::mutex locker;
+		static TracyLockable(std::mutex, locker);
 		std::scoped_lock lock(locker);
 		static Texture bc_raw_uint2;
 		static Texture bc_raw_uint4;

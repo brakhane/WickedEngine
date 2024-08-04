@@ -33,6 +33,8 @@ DEFINE_GUID(D3D12_VIDEO_DECODE_PROFILE_H264, 0x1b81be68, 0xa0c7, 0x11d3, 0xb9, 0
 #include <algorithm>
 #include <intrin.h> // _BitScanReverse64
 
+#include <tracy/TracyD3D12.hpp>
+
 using namespace Microsoft::WRL;
 
 namespace wi::graphics
@@ -5537,7 +5539,7 @@ std::mutex queue_locker;
 	void GraphicsDevice_DX12::OnDeviceRemoved()
 	{
 #ifdef PLATFORM_WINDOWS_DESKTOP
-		std::lock_guard<std::mutex> lock(onDeviceRemovedMutex);
+		std::lock_guard lock(onDeviceRemovedMutex);
 
 		if (deviceRemoved)
 		{

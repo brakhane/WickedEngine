@@ -14,6 +14,8 @@
 #include <string>
 #include <atomic>
 
+#include <tracy/Tracy.hpp>
+
 using namespace wi::ecs;
 using namespace wi::scene;
 using namespace wi::graphics;
@@ -186,7 +188,7 @@ namespace wi::terrain
 
 	wi::jobsystem::context virtual_texture_ctx;
 
-	static std::mutex locker;
+	static TracyLockable(std::mutex, locker);
 
 	void weight_norm(XMFLOAT4& weights)
 	{

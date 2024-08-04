@@ -3,6 +3,7 @@
 
 #include <list>
 #include <mutex>
+#include <tracy/Tracy.hpp>
 
 namespace wi::eventhandler
 {
@@ -11,7 +12,7 @@ namespace wi::eventhandler
 		// Note: list is used because events can also add events from within and that mustn't cause invalidation like vector
 		wi::unordered_map<int, std::list<std::function<void(uint64_t)>*>> subscribers;
 		wi::unordered_map<int, std::list<std::function<void(uint64_t)>>> subscribers_once;
-		std::mutex locker;
+		TracyLockable(std::mutex, locker);
 	};
 	std::shared_ptr<EventManager> manager = std::make_shared<EventManager>();
 

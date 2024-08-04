@@ -5,6 +5,21 @@
 #include <thread>
 #include <shellapi.h> // drag n drop
 
+#include <tracy/Tracy.hpp>
+
+void* operator new(std::size_t count)
+{
+	auto ptr = malloc(count);
+	TracyAlloc(ptr, count);
+	return ptr;
+}
+
+void operator delete(void* ptr) noexcept
+{
+	TracyFree(ptr);
+	free(ptr);
+}
+
 // Enable macro and follow instructions from here: https://devblogs.microsoft.com/directx/gettingstarted-dx12agility/
 //#define USING_D3D12_AGILITY_SDK
 #ifdef USING_D3D12_AGILITY_SDK

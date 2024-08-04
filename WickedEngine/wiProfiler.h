@@ -17,9 +17,16 @@
 #define WI_PROFILER_CONCAT(x,y) WI_PROFILER_CONCAT_INDIRECT(x,y)
 #define WI_PROFILER_CONCAT_INDIRECT(x,y) x##y
 
+#include <tracy/TracyC.h>
+
 namespace wi::profiler
 {
 	typedef size_t range_id;
+
+	typedef struct {
+		range_id id;
+		TracyCZoneCtx ctx;
+	} range_t;
 
 	// Begin collecting profiling data for the current frame
 	void BeginFrame();
@@ -28,18 +35,18 @@ namespace wi::profiler
 	void EndFrame(wi::graphics::CommandList cmd);
 
 	// Start a CPU profiling range
-	range_id BeginRangeCPU(const char* name);
+	range_t BeginRangeCPU(const char* name);
 
 	// Start a GPU profiling range
-	range_id BeginRangeGPU(const char* name, wi::graphics::CommandList cmd);
+	range_t BeginRangeGPU(const char* name, wi::graphics::CommandList cmd);
 
 	// End a profiling range
-	void EndRange(range_id id);
+	void EndRange(range_t id);
 
 	// helper using RAII to avoid having to manually call BeginRangeCPU/EndRange at beginning/end
 	struct ScopedRangeCPU
 	{
-		range_id id;
+		range_t id;
 		inline ScopedRangeCPU(const char* name) { id = BeginRangeCPU(name); }
 		inline ~ScopedRangeCPU() { EndRange(id); }
 	};
@@ -47,7 +54,7 @@ namespace wi::profiler
 	// same for BeginRangeGPU
 	struct ScopedRangeGPU
 	{
-		range_id id;
+		range_t id;
 		inline ScopedRangeGPU(const char* name, wi::graphics::CommandList cmd) { id = BeginRangeGPU(name, cmd); }
 		inline ~ScopedRangeGPU() { EndRange(id); }
 	};

@@ -15,6 +15,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include <tracy/Tracy.hpp>
 using namespace wi::graphics;
 
 namespace wi
@@ -183,7 +184,7 @@ namespace wi
 
 	namespace resourcemanager
 	{
-		static std::mutex locker;
+		static TracyLockable(std::mutex, locker);
 		static std::unordered_map<std::string, std::weak_ptr<ResourceInternal>> resources;
 		static Mode mode = Mode::NO_EMBEDDING;
 
@@ -1310,7 +1311,7 @@ namespace wi
 			Texture texture;
 			int srgb_subresource = -1;
 		};
-		std::mutex streaming_replacement_mutex;
+		TracyLockable(std::mutex, streaming_replacement_mutex);
 		wi::vector<StreamingTextureReplace> streaming_texture_replacements;
 		float streaming_threshold = 0.8f;
 		float streaming_fade_speed = 4;
@@ -1631,7 +1632,7 @@ namespace wi
 						archive.GetSourceFileName(),
 						file_offset
 					);
-					static std::mutex seri_locker;
+					static TracyLockable(std::mutex, seri_locker);
 					seri_locker.lock();
 					seri.resources.push_back(res);
 					seri_locker.unlock();

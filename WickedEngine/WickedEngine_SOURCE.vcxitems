@@ -15,6 +15,14 @@
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\Tracy.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyC.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyD3D11.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyD3D12.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyLua.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyOpenCL.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyOpenGL.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)..\tracy\public\tracy\TracyVulkan.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)CommonInclude.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Jolt\AABBTree\AABBTreeBuilder.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)Jolt\AABBTree\AABBTreeToBuffer.h" />
@@ -457,6 +465,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)wiXInput.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\tracy\public\TracyClient.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Jolt\AABBTree\AABBTreeBuilder.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Jolt\Core\Color.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Jolt\Core\Factory.cpp" />

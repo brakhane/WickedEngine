@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <mutex>
 
+#include <tracy/Tracy.hpp>
 using namespace wi::graphics;
 using namespace wi::scene;
 
@@ -433,7 +434,7 @@ namespace wi
 		const uint2 dim = uint2(160 * params.surfaceDetail, 90 * params.surfaceDetail);
 		const uint index_count = dim.x * dim.y * 6;
 		const uint64_t indexbuffer_required_size = index_count * sizeof(uint32_t);
-		static std::mutex locker;
+		static TracyLockable(std::mutex, locker);
 		locker.lock(); // in case two threads draw the ocean the same time, index buffer creation must be locked
 		if (indexBuffer.GetDesc().size != indexbuffer_required_size)
 		{

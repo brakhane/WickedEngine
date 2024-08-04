@@ -15,11 +15,16 @@
 #include "Superluminal/PerformanceAPI_loader.h"
 #endif // superluminal
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyC.h>
+
 #include <string>
 #include <stack>
 #include <mutex>
 #include <atomic>
 #include <sstream>
+
+#include <tracy/Tracy.hpp>
 
 using namespace wi::graphics;
 
@@ -28,9 +33,9 @@ namespace wi::profiler
 	bool ENABLED = false;
 	bool ENABLED_REQUEST = false;
 	bool initialized = false;
-	std::mutex lock;
-	range_id cpu_frame;
-	range_id gpu_frame;
+	TracyLockable(std::mutex, lock);
+	range_t cpu_frame;
+	range_t gpu_frame;
 	GPUQueryHeap queryHeap;
 	GPUBuffer queryResultBuffer[GraphicsDevice::GetBufferCount()];
 	std::atomic<uint32_t> nextQuery{ 0 };
@@ -62,8 +67,10 @@ namespace wi::profiler
 	};
 	wi::unordered_map<size_t, Range> ranges;
 
+	static const char* GPU_FRAME = "Wicked Frame";
 	void BeginFrame()
 	{
+		FrameMarkStart(GPU_FRAME);
 		if (ENABLED_REQUEST != ENABLED)
 		{
 			ranges.clear();
@@ -162,13 +169,16 @@ namespace wi::profiler
 	}
 	void EndFrame(CommandList cmd)
 	{
+		FrameMarkEnd(GPU_FRAME);
+		FrameMark;
+
 		if (!ENABLED || !initialized)
 			return;
 
 		GraphicsDevice* device = wi::graphics::GetDevice();
 
 		// note: read the GPU Frame end range manually because it will be on a separate command list than start point:
-		auto& gpu_range = ranges[gpu_frame];
+		auto& gpu_range = ranges[gpu_frame.id];
 		gpu_range.gpuEnd[queryheap_idx] = nextQuery.fetch_add(1);
 		device->QueryEnd(&queryHeap, gpu_range.gpuEnd[queryheap_idx], cmd);
 
@@ -186,10 +196,12 @@ namespace wi::profiler
 		nextQuery.store(0);
 	}
 
-	range_id BeginRangeCPU(const char* name)
+	range_t BeginRangeCPU(const char* name)
 	{
+		TracyCZoneN(ctx, name, true);
+
 		if (!ENABLED || !initialized)
-			return 0;
+			return { 0, ctx };
 
 #if PERFORMANCEAPI_ENABLED
 		if (superluminal_handle)
@@ -214,12 +226,15 @@ namespace wi::profiler
 
 		lock.unlock();
 
-		return id;
+		return range_t{ id, ctx };
 	}
-	range_id BeginRangeGPU(const char* name, CommandList cmd)
+
+	range_t BeginRangeGPU(const char* name, CommandList cmd)
 	{
+		TracyCZoneN(ctx, name, false);
+
 		if (!ENABLED || !initialized)
-			return 0;
+			return range_t{ 0, ctx };
 
 		range_id id = wi::helper::string_hash(name);
 
@@ -241,16 +256,18 @@ namespace wi::profiler
 
 		lock.unlock();
 
-		return id;
+		return { id, ctx };
 	}
-	void EndRange(range_id id)
+	void EndRange(range_t id)
 	{
+		TracyCZoneEnd(id.ctx);
+
 		if (!ENABLED || !initialized)
 			return;
 
 		lock.lock();
 
-		auto it = ranges.find(id);
+		auto it = ranges.find(id.id);
 		if (it != ranges.end())
 		{
 			if (it->second.IsCPURange())
@@ -267,7 +284,7 @@ namespace wi::profiler
 			else
 			{
 				GraphicsDevice* device = wi::graphics::GetDevice();
-				ranges[id].gpuEnd[queryheap_idx] = nextQuery.fetch_add(1);
+				ranges[id.id].gpuEnd[queryheap_idx] = nextQuery.fetch_add(1);
 				device->QueryEnd(&queryHeap, it->second.gpuEnd[queryheap_idx], it->second.cmd);
 			}
 		}
@@ -341,14 +358,14 @@ namespace wi::profiler
 				continue;
 			if (x.second.IsCPURange())
 			{
-				if (x.first == cpu_frame)
+				if (x.first == cpu_frame.id)
 					continue;
 				time_cache_cpu[x.second.name].num_hits++;
 				time_cache_cpu[x.second.name].total_time += x.second.time;
 			}
 			else
 			{
-				if (x.first == gpu_frame)
+				if (x.first == gpu_frame.id)
 					continue;
 				time_cache_gpu[x.second.name].num_hits++;
 				time_cache_gpu[x.second.name].total_time += x.second.time;
@@ -356,7 +373,7 @@ namespace wi::profiler
 		}
 
 		// Print CPU ranges:
-		ss << ranges[cpu_frame].name << ": " << std::fixed << ranges[cpu_frame].time << " ms" << std::endl;
+		ss << ranges[cpu_frame.id].name << ": " << std::fixed << ranges[cpu_frame.id].time << " ms" << std::endl;
 		for (auto& x : time_cache_cpu)
 		{
 			if (x.second.num_hits > 1)
@@ -373,7 +390,7 @@ namespace wi::profiler
 		ss << std::endl;
 
 		// Print GPU ranges:
-		ss << ranges[gpu_frame].name << ": " << std::fixed << ranges[gpu_frame].time << " ms" << std::endl;
+		ss << ranges[gpu_frame.id].name << ": " << std::fixed << ranges[gpu_frame.id].time << " ms" << std::endl;
 		for (auto& x : time_cache_gpu)
 		{
 			if (x.second.num_hits > 1)
@@ -436,8 +453,8 @@ namespace wi::profiler
 				graph_max_gpu_memory = std::max(graph_max_gpu_memory, gpu_memory_graph[i]);
 				graph_max_cpu_memory = std::max(graph_max_cpu_memory, cpu_memory_graph[i]);
 			}
-			cpu_graph[0] = ranges[cpu_frame].time;
-			gpu_graph[0] = ranges[gpu_frame].time;
+			cpu_graph[0] = ranges[cpu_frame.id].time;
+			gpu_graph[0] = ranges[gpu_frame.id].time;
 			cpu_memory_graph[0] = float(double(cpu_memory_usage.process_physical) / (1024.0 * 1024.0 * 1024.0)); // Gigabytes
 			gpu_memory_graph[0] = float(double(gpu_memory_usage.usage) / (1024.0 * 1024.0 * 1024.0)); // Gigabytes
 			graph_max = std::max(graph_max, cpu_graph[0]);

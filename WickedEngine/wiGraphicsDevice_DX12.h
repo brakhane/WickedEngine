@@ -31,6 +31,8 @@
 #include <atomic>
 #include <mutex>
 
+#include <tracy/Tracy.hpp>
+
 namespace wi::graphics
 {
 	class GraphicsDevice_DX12 final : public GraphicsDevice
@@ -46,7 +48,7 @@ namespace wi::graphics
 		Microsoft::WRL::ComPtr<ID3D12Fence> deviceRemovedFence;
 		HANDLE deviceRemovedWaitHandle = {};
 #endif // PLATFORM_WINDOWS_DESKTOP
-		std::mutex onDeviceRemovedMutex;
+		TracyLockable(std::mutex, onDeviceRemovedMutex);
 		bool deviceRemoved = false;
 
 		Microsoft::WRL::ComPtr<ID3D12CommandSignature> dispatchIndirectCommandSignature;
@@ -92,7 +94,7 @@ namespace wi::graphics
 		{
 			GraphicsDevice_DX12* device = nullptr;
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> queue; // create separate copy queue to reduce interference with main QUEUE_COPY
-			std::mutex locker;
+			TracyLockable(std::mutex, locker);
 
 			struct CopyCMD
 			{
@@ -130,7 +132,7 @@ namespace wi::graphics
 		};
 
 		wi::vector<Semaphore> semaphore_pool;
-		std::mutex semaphore_pool_locker;
+		TracyLockable(std::mutex, semaphore_pool_locker);
 		Semaphore new_semaphore()
 		{
 			std::scoped_lock lck(semaphore_pool_locker);
@@ -462,14 +464,14 @@ namespace wi::graphics
 			Microsoft::WRL::ComPtr<D3D12MA::Allocator> allocator;
 			Microsoft::WRL::ComPtr<ID3D12Device> device;
 			uint64_t framecount = 0;
-			std::mutex destroylocker;
+			TracyLockable(std::mutex, destroylocker);
 
 			Microsoft::WRL::ComPtr<D3D12MA::Pool> uma_pool;
 
 			struct DescriptorAllocator
 			{
 				GraphicsDevice_DX12* device = nullptr;
-				std::mutex locker;
+				TracyLockable(std::mutex, locker);
 				D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 				wi::vector<Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>> heaps;
 				uint32_t descriptor_size = 0;

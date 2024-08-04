@@ -47,6 +47,7 @@ Copyright (c) 2012 Brandon Pelfrey
 #include <string.h>
 #include "xatlas.h"
 
+#include <tracy/Tracy.hpp>
 #ifndef XA_DEBUG
 #ifdef NDEBUG
 #define XA_DEBUG 0
@@ -3702,7 +3703,7 @@ private:
 	void *m_userData;
 	uint32_t m_maxValue;
 	uint32_t m_progress;
-	std::mutex m_mutex;
+	TracyLockable(std::mutex, m_mutex);
 };
 
 struct Spinlock
@@ -3851,8 +3852,8 @@ private:
 	struct Worker
 	{
 		std::thread *thread = nullptr;
-		std::mutex mutex;
-		std::condition_variable cv;
+		TracyLockable(std::mutex, mutex);
+		std::condition_variable_any cv;
 		std::atomic<bool> wakeup;
 	};
 
@@ -3865,7 +3866,7 @@ private:
 	static void workerThread(TaskScheduler *scheduler, Worker *worker, uint32_t threadIndex)
 	{
 		m_threadIndex = threadIndex;
-		std::unique_lock<std::mutex> lock(worker->mutex);
+		std::unique_lock<LockableBase(std::mutex)> lock(worker->mutex);
 		for (;;) {
 			worker->cv.wait(lock, [=]{ return worker->wakeup.load(); });
 			worker->wakeup = false;

@@ -20,6 +20,8 @@
 #include "wiJobSystem_PS5.h"
 #endif // PLATFORM_PS5
 
+#include <tracy/Tracy.hpp>
+
 namespace wi::jobsystem
 {
 	struct Job
@@ -60,7 +62,7 @@ namespace wi::jobsystem
 	struct JobQueue
 	{
 		std::deque<Job> queue;
-		std::mutex locker;
+		TracyLockable(std::mutex, locker);
 
 		inline void push_back(const Job& item)
 		{
@@ -85,8 +87,8 @@ namespace wi::jobsystem
 		wi::vector<std::thread> threads;
 		std::unique_ptr<JobQueue[]> jobQueuePerThread;
 		std::atomic<uint32_t> nextQueue{ 0 };
-		std::condition_variable wakeCondition;
-		std::mutex wakeMutex;
+		std::condition_variable_any wakeCondition;
+		TracyLockable(std::mutex, wakeMutex);
 
 		// Start working on a job queue
 		//	After the job queue is finished, it can switch to an other queue and steal jobs from there
@@ -193,7 +195,7 @@ namespace wi::jobsystem
 						res.work(threadID);
 
 						// finished with jobs, put to sleep
-						std::unique_lock<std::mutex> lock(res.wakeMutex);
+						std::unique_lock<LockableBase(std::mutex)> lock(res.wakeMutex);
 						res.wakeCondition.wait(lock);
 					}
 
