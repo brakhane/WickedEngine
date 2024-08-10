@@ -32,6 +32,7 @@
 #include <mutex>
 
 #include <tracy/Tracy.hpp>
+#include <tracy/TracyD3D12.hpp>
 
 namespace wi::graphics
 {
@@ -84,6 +85,7 @@ namespace wi::graphics
 			D3D12_COMMAND_QUEUE_DESC desc = {};
 			Microsoft::WRL::ComPtr<ID3D12CommandQueue> queue;
 			wi::vector<ID3D12CommandList*> submit_cmds;
+			TracyD3D12Ctx tracy_ctx;
 
 			void signal(const Semaphore& semaphore);
 			void wait(const Semaphore& semaphore);

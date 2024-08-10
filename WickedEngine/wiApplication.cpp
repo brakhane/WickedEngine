@@ -88,6 +88,7 @@ namespace wi
 
 	void Application::Run()
 	{
+		ZoneScoped;
 		if (!initialized)
 		{
 			// Initialize in a lazy way, so the user application doesn't have to call this explicitly
@@ -104,6 +105,7 @@ namespace wi
 			// In HDR10, we perform the compositing in a custom linear color space render target
 			if (!rendertarget.IsValid())
 			{
+				ZoneScopedN("create render target");
 				TextureDesc desc;
 				desc.width = swapChain.desc.width;
 				desc.height = swapChain.desc.height;
@@ -124,6 +126,7 @@ namespace wi
 
 		if (!wi::initializer::IsInitializeFinished())
 		{
+			ZoneScopedN("Initialization screen");
 			// Until engine is not loaded, present initialization screen...
 			CommandList cmd = graphicsDevice->BeginCommandList();
 			if (colorspace_conversion_required)
@@ -164,6 +167,7 @@ namespace wi
 		static bool startup_script = false;
 		if (!startup_script)
 		{
+			ZoneScopedN("startup script");
 			startup_script = true;
 			std::string startup_lua_filename = wi::helper::GetCurrentPath() + "/startup.lua";
 			if (wi::helper::FileExists(startup_lua_filename))
@@ -289,6 +293,7 @@ namespace wi
 		wi::input::ClearForNextFrame();
 		wi::profiler::EndFrame(cmd);
 		graphicsDevice->SubmitCommandLists();
+		FrameMark;
 	}
 
 	void Application::Update(float dt)
@@ -718,6 +723,19 @@ namespace wi
 
 }
 
+void* operator new(std::size_t count)
+{
+	auto ptr = malloc(count);
+	if (!ptr) throw std::bad_alloc();
+	TracyAlloc(ptr, count);
+	return ptr;
+}
+
+void operator delete(void* ptr) noexcept
+{
+	TracyFree(ptr);
+	free(ptr);
+}
 
 #ifdef WICKED_ENGINE_HEAP_ALLOCATION_COUNTER
 // Heap alloc replacements are used to count heap allocations:

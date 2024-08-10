@@ -25,6 +25,7 @@
 #include <sstream>
 
 #include <tracy/Tracy.hpp>
+#include <tracy/TracyD3D12.hpp>
 
 using namespace wi::graphics;
 
@@ -170,7 +171,6 @@ namespace wi::profiler
 	void EndFrame(CommandList cmd)
 	{
 		FrameMarkEnd(GPU_FRAME);
-		FrameMark;
 
 		if (!ENABLED || !initialized)
 			return;

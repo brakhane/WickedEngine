@@ -3,6 +3,7 @@
 #include "wiCanvas.h"
 #include "wiColor.h"
 
+#include <tracy/TracyC.h>
 
 // QoL macros, allows writing just ScopedXxxProfiling without needing to declare a variable manually
 #define ScopedCPUProfiling(name) wi::profiler::ScopedRangeCPU WI_PROFILER_CONCAT(_wi_profiler_cpu_range,__LINE__)(name)
@@ -16,8 +17,6 @@
 // warning about shadowed variables
 #define WI_PROFILER_CONCAT(x,y) WI_PROFILER_CONCAT_INDIRECT(x,y)
 #define WI_PROFILER_CONCAT_INDIRECT(x,y) x##y
-
-#include <tracy/TracyC.h>
 
 namespace wi::profiler
 {

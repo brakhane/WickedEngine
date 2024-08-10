@@ -2497,6 +2497,7 @@ std::mutex queue_locker;
 			}
 			hr = queues[QUEUE_GRAPHICS].queue->SetName(L"QUEUE_GRAPHICS");
 			assert(SUCCEEDED(hr));
+			queues[QUEUE_GRAPHICS].tracy_ctx = TracyD3D12Context(device.Get(), queues[QUEUE_GRAPHICS].queue.Get())
 		}
 
 		{
@@ -2515,6 +2516,7 @@ std::mutex queue_locker;
 			}
 			hr = queues[QUEUE_COMPUTE].queue->SetName(L"QUEUE_COMPUTE");
 			assert(SUCCEEDED(hr));
+			queues[QUEUE_COMPUTE].tracy_ctx = TracyD3D12Context(device.Get(), queues[QUEUE_COMPUTE].queue.Get())
 		}
 
 		{
@@ -2533,6 +2535,7 @@ std::mutex queue_locker;
 			}
 			hr = queues[QUEUE_COPY].queue->SetName(L"QUEUE_COPY");
 			assert(SUCCEEDED(hr));
+			queues[QUEUE_COPY].tracy_ctx = TracyD3D12Context(device.Get(), queues[QUEUE_COPY].queue.Get())
 		}
 
 		if (SUCCEEDED(device.As(&video_device)))
@@ -2548,6 +2551,7 @@ std::mutex queue_locker;
 				capabilities |= GraphicsDeviceCapability::VIDEO_DECODE_H264;
 				hr = queues[QUEUE_VIDEO_DECODE].queue->SetName(L"QUEUE_VIDEO_DECODE");
 				assert(SUCCEEDED(hr));
+				queues[QUEUE_VIDEO_DECODE].tracy_ctx = TracyD3D12Context(device.Get(), queues[QUEUE_VIDEO_DECODE].queue.Get())
 			}
 		}
 

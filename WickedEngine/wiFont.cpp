@@ -351,6 +351,7 @@ namespace wi::font
 	}
 	void UpdateAtlas(float upscaling)
 	{
+		ZoneScoped;
 		std::scoped_lock lck(locker);
 
 		upscaling = std::max(1.5f, upscaling); // add some minimum upscaling, especially for SDF

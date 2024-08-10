@@ -30,6 +30,8 @@
 
 #include <memory>
 
+#include <tracy/TracyLua.hpp>
+
 namespace wi::lua
 {
 	static constexpr const char* WILUA_ERROR_PREFIX = "[Lua Error] ";
@@ -209,6 +211,7 @@ namespace wi::lua
 
 		lua_internal().m_luaState = luaL_newstate();
 		luaL_openlibs(lua_internal().m_luaState);
+		tracy::LuaRegister(lua_internal().m_luaState);
 		RegisterFunc("dofile", Internal_DoFile);
 		RegisterFunc("dobinaryfile", Internal_DoBinaryFile);
 		RegisterFunc("compilebinaryfile", Internal_CompileBinaryFile);
