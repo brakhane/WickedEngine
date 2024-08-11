@@ -154,7 +154,7 @@ namespace wi::graphics
 			std::scoped_lock lck(semaphore_pool_locker);
 			semaphore_pool.push_back(semaphore);
 		}
-
+		public:
 		struct CommandList_DX12
 		{
 			Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocators[BUFFERCOUNT][QUEUE_COUNT];

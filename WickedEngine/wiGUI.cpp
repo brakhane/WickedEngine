@@ -13,6 +13,9 @@
 
 #include <sstream>
 
+#include "wiGraphicsDevice_DX12.h"
+#include <tracy/TracyD3D12.hpp>
+
 using namespace wi::graphics;
 using namespace wi::primitive;
 
@@ -126,6 +129,8 @@ namespace wi::gui
 
 		auto range_cpu = wi::profiler::BeginRangeCPU("GUI Render");
 		auto range_gpu = wi::profiler::BeginRangeGPU("GUI Render", cmd);
+		auto dxcl = *(wi::graphics::GraphicsDevice_DX12::CommandList_DX12*)cmd.internal_state;
+		TracyD3D12Zone(((TracyD3D12Ctx)(cmd.tracy_ctx)), (ID3D12GraphicsCommandList*)dxcl.commandLists[QUEUE_GRAPHICS].Get(), "GUI Render");
 
 		Rect scissorRect;
 		scissorRect.bottom = (int32_t)(canvas.GetPhysicalHeight());

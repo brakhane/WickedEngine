@@ -30,6 +30,7 @@
 #include <atomic>
 
 #include "tracy/Tracy.hpp"
+#include <tracy/TracyD3D12.hpp>
 
 //#define WICKED_ENGINE_HEAP_ALLOCATION_COUNTER
 
@@ -293,6 +294,9 @@ namespace wi
 		wi::input::ClearForNextFrame();
 		wi::profiler::EndFrame(cmd);
 		graphicsDevice->SubmitCommandLists();
+		auto dxcl = *(wi::graphics::GraphicsDevice_DX12::CommandList_DX12*)cmd.internal_state;
+		TracyD3D12NewFrame(((TracyD3D12Ctx)(cmd.tracy_ctx)));
+		TracyD3D12Collect(((TracyD3D12Ctx)(cmd.tracy_ctx)));
 		FrameMark;
 	}
 

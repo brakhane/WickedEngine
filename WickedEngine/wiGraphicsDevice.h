@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <functional>
 
+//#include <tracy/TracyD3D12.hpp>
+
 namespace wi::graphics
 {
 	// CommandList can be used to record graphics commands from a CPU thread
@@ -17,6 +19,7 @@ namespace wi::graphics
 	struct CommandList
 	{
 		void* internal_state = nullptr;
+		void* tracy_ctx = nullptr;
 		constexpr bool IsValid() const { return internal_state != nullptr; }
 	};
 

@@ -2481,6 +2481,27 @@ std::mutex queue_locker;
 			wi::platform::Exit();
 		}
 
+		/*
+		auto initQueue = [&](QUEUE_TYPE qType, D3D12_COMMAND_LIST_TYPE clType) {
+			queues[qType].desc.Type = clType;
+			queues[qType].desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+			queues[qType].desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+			queues[qType].desc.NodeMask = 0;
+			hr = device->CreateCommandQueue(&queues[qType].desc, PPV_ARGS(queues[qType].queue));
+			assert(SUCCEEDED(hr));
+			if (FAILED(hr))
+			{
+				std::stringstream ss("");
+				ss << "ID3D12Device::CreateCommandQueue[qType] failed! ERROR: 0x" << std::hex << hr;
+				wi::helper::messageBox(ss.str(), "Error!");
+				wi::platform::Exit();
+			}
+			hr = queues[qType].queue->SetName(qType);
+			assert(SUCCEEDED(hr));
+			queues[qType].tracy_ctx = TracyD3D12Context(device.Get(), queues[qType].queue.Get())
+		}
+		*/
+
 		{
 			queues[QUEUE_GRAPHICS].desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 			queues[QUEUE_GRAPHICS].desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
@@ -5263,6 +5284,7 @@ std::mutex queue_locker;
 		}
 		CommandList cmd;
 		cmd.internal_state = commandlists[cmd_current].get();
+		cmd.tracy_ctx = queues[queue].tracy_ctx;
 		cmd_locker.unlock();
 
 		CommandList_DX12& commandlist = GetCommandList(cmd);
