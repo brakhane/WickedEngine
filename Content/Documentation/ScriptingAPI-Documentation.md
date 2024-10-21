@@ -396,6 +396,7 @@ Gives you the ability to render text with a custom font.
 - SetStyle(string fontstyle, opt int size = 16)
 - SetText(opt string text)
 - SetSize(int size)
+- SetScale(float scale)
 - SetPos(Vector pos)
 - SetSpacing(Vector spacing)
 - SetAlign(WIFALIGN Halign, opt WIFALIGN Valign)
@@ -420,6 +421,7 @@ Gives you the ability to render text with a custom font.
 - SetFlippedVertically(bool value) -- enable flipping the letters vertically
 - GetText() : string result
 - GetSize() : int result
+- GetScale() : float result
 - GetPos() : Vector result
 - GetSpacing() : Vector result
 - GetAlign() : WIFALIGN halign,valign
@@ -1637,6 +1639,9 @@ This is the main entry point and manages the lifetime of the application.
 - SetPipelineCountDisplay(bool active)	-- toggle display of active graphics pipeline count if info display is enabled
 - SetHeapAllocationCountDisplay(bool active)	-- toggle display of heap allocation statistics if info display is enabled
 - SetVRAMUsageDisplay(bool active)	-- toggle display of video memory usage if info display is enabled
+- SetColorGradingHelper(bool value)	-- toggale color grading helper display in the top left corner
+- IsHDRSupported() : bool	-- returns whther HDR display output is supported on the current monitor
+- SetHDR(bool)	-- sets HDR display mode (if monitor supports it)
 - GetCanvas() : Canvas canvas  -- returns a copy of the application's current canvas
 - SetCanvas(Canvas canvas)  -- applies the specified canvas to the application
 - Exit() -- Closes the program
@@ -1689,7 +1694,6 @@ It inherits functions from RenderPath2D, so it can render a 2D overlay.
 - SetBloomEnabled(bool value)
 - SetBloomThreshold(bool value)
 - SetColorGradingEnabled(bool value)
-- SetColorGradingTexture(Texture value)
 - SetVolumeLightsEnabled(bool value)
 - SetLightShaftsEnabled(bool value)
 - SetLensFlareEnabled(bool value)
