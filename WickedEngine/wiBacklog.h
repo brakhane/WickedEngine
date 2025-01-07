@@ -8,6 +8,12 @@
 #include <string>
 #include <cassert>
 
+// Used by various *_check macros
+static constexpr std::string_view extract_function_name(const std::string_view callstr)
+{
+	return callstr.substr(0, callstr.find("("));
+}
+
 #define wilog_level(str,level,...) {char text[1024] = {}; snprintf(text, sizeof(text), str, ## __VA_ARGS__); wi::backlog::post(text, level);}
 #define wilog_messagebox(str,...) {char text[1024] = {}; snprintf(text, sizeof(text), str, ## __VA_ARGS__); wi::backlog::post(text, wi::backlog::LogLevel::Error); wi::helper::messageBox(text, "Error!");}
 #define wilog_warning(str,...) {wilog_level(str, wi::backlog::LogLevel::Warning, ## __VA_ARGS__);}
