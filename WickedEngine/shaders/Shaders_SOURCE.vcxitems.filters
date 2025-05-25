@@ -1139,6 +1139,7 @@
     <FxCompile Include="$(MSBuildThisFileDirectory)volumetriclight_rectanglePS.hlsl">
       <Filter>PS</Filter>
     </FxCompile>
+    <FxCompile Include="$(MSBuildThisFileDirectory)objectPS_test.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)ShaderInterop.h">
