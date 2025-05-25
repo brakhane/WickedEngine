@@ -1148,6 +1148,7 @@
     <FxCompile Include="$(MSBuildThisFileDirectory)crt_screenCS.hlsl">
       <Filter>CS</Filter>
     </FxCompile>
+    <FxCompile Include="$(MSBuildThisFileDirectory)objectPS_test.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)ShaderInterop.h">
