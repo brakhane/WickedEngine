@@ -1154,6 +1154,8 @@
     <FxCompile Include="$(MSBuildThisFileDirectory)gaussian_splat_indirectCS.hlsl">
       <Filter>CS</Filter>
     </FxCompile>
+    <FxCompile Include="$(MSBuildThisFileDirectory)gaussian_splat_indirectCS.hlsl" />
+    <FxCompile Include="$(MSBuildThisFileDirectory)objectPS_test.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)ShaderInterop.h">
