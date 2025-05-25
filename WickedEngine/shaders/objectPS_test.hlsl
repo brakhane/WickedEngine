@@ -28,14 +28,15 @@ float4 mandel(float2 pos)
 
 float4 col(float2 pos)
 {
-	const float2 res = float2(320, 240);
+	const float2 res = float2(1*1024, 1*1024);
 
 	float4 color = mandel(trunc(res*pos)/res);
 	//color = mandel(pos);
-	if ( res.x * abs(ddx_fine(pos.x)) < .166 && res.y * abs(ddy_fine(pos.x)) < .166)
+	const float xx = res.x * pos.x;
+	const float yy = res.y * pos.y;
+
+	if (abs(ddx(xx)) < .06)
 	{
-		const float xx = res.x * pos.x;
-		const float yy = res.y * pos.y;
 
 		/*
 		if (frac(xx) < 0.30) color.yz = 0;
@@ -45,6 +46,7 @@ float4 col(float2 pos)
 		else if (frac(xx) < 0.96) color.xy = 0;
 		else color = 0;
 		*/
+		color *= 3.;
 		if (frac(xx) < 0.33) color.yz = 0;
 		else if (frac(xx) < 0.66) color.xz = 0;
 		else color.xy = 0;
@@ -72,7 +74,7 @@ float4 main(PixelInput input) : SV_TARGET
 	float4 fincol = (col(ul) + col(ur) + col(ll) + col(lr)) / 4;
 	fincol = col(uvsets);
 
-	float4 cc = (pow(fincol, 1 / 2.2) * 5);
+	float4 cc = (pow(fincol, 1 / 2.2));
 	return cc;
 	//return ((frac(xx) < fac) && (frac(yy) < fac)) ? cc : cc * .0;
 }
