@@ -295,7 +295,7 @@ float4 mandel(float2 pos)
 
 float4 col(float2 pos)
 {
-	const float2 res = float2(1*320, 1*1024);
+	const float2 res = float2(1*320, 1*200);
 
 	float4 color = mandel(trunc(res * pos) / res);
 	//color = mandel(pos);
@@ -317,8 +317,8 @@ float4 mask(float2 pos)
 
 float Scanline(float y, float fBlur)
 {
-	float fResult = sin(y * 10) * 0.45 + 0.55;
-	return lerp(fResult, 1.0f, min(1.0, fBlur));
+	float fResult = sin(y * 2 * 3.1415926535) * 0.45 + 0.55;
+	return lerp(fResult, 1.0f, min(1., fBlur));
 }
 
 float GetScanline(float2 vUV)
@@ -357,8 +357,9 @@ float4 main(PixelInput input) : SV_TARGET
 	//fincol += 3 * col(uvsets);
 	//fincol /= 4;
 
-	fincol *= mask(input.pos);
+	
 	fincol *= 1 * GetScanline(uvsets);
+	fincol *= mask(input.pos);
 
 	float4 cc = (pow(fincol, 1 / 2.2));
 	return cc;
