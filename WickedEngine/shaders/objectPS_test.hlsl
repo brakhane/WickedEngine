@@ -1,24 +1,6 @@
 #define OBJECTSHADER_LAYOUT_COMMON
 #include "objectHF.hlsli"
 
-float mandel2(float2 pos)
-{
-	pos = 4 * (pos - 0.5);
-
-	const float2x2 c = {
-		pos.x, -pos.y,
-		pos.y,  pos.x
-	};
-#define MAX 15
-
-	float2x2 z = 0.;
-	for (int i = 0; i <= MAX; i++) {
-		z = mul(z, z) + c;
-		if (determinant(z) > 4.) return float(i) / float(MAX);
-	}
-	return -1.;
-}
-
 
 float4 VGA(int i)
 {
@@ -283,19 +265,38 @@ float4 VGA(int i)
 	return float4(col / 63, 1.);
 }
 
+#define MAX 16
+
+float mandel2(float2 pos)
+{
+	pos = 4 * (pos - 0.5);
+
+	const float2x2 c = {
+		pos.x, -pos.y,
+		pos.y,  pos.x
+	};
+
+	float2x2 z = 0.;
+	for (int i = 0; i <= MAX; i++) {
+		z = mul(z, z) + c;
+		if (determinant(z) > 4.) return float(i) / float(MAX);
+	}
+	return -1.;
+}
+
 
 
 float4 mandel(float2 pos)
 {
 	float m = mandel2(pos);
 	//float4 color = m <= 0 ? float4(.6, 0, .4, 0.) : pos.yxxx * m;
-	float4 color = m <= 0 ? float4(0,0,0,0) : VGA(floor(m * 15));
+	float4 color = m <= 0 ? float4(0,0,0,0) : VGA(floor(m * MAX));
 	return color;
 }
 
 float4 col(float2 pos)
 {
-	const float2 res = float2(1*320, 1*200);
+	const float2 res = float2(1*640, 1*480);
 
 	float4 color = mandel(trunc(res * pos) / res);
 	//color = mandel(pos);
@@ -305,7 +306,7 @@ float4 col(float2 pos)
 
 float4 mask(float2 pos)
 {
-	const float dark = .1;
+	const float dark = .5;
 	pos.x += 3 * pos.y;
 	float4 m = float4(dark, dark, dark, 1.);
 	float x = frac(pos.x * 1.0 / 6.0);
@@ -317,14 +318,14 @@ float4 mask(float2 pos)
 
 float Scanline(float y, float fBlur)
 {
-	float fResult = sin(y * 2 * 3.1415926535) * 0.45 + 0.55;
+	float fResult = sin(y * 2 * PI - PI/2) * 0.45 +0.55;
 	return lerp(fResult, 1.0f, min(1., fBlur));
 }
 
 float GetScanline(float2 vUV)
 {
 	//vUV.y *= 0.25;
-	vUV.y *= 200;
+	vUV.y *= 480;
 	float2 dx = ddx(vUV);
 	float2 dy = ddy(vUV);
 	float dV = length(float2(dx.y, dy.y));
@@ -333,14 +334,11 @@ float GetScanline(float2 vUV)
 }
 
 
-
-
-
 float4 main(PixelInput input) : SV_TARGET
 {
 	ShaderMaterial material = GetMaterial();
 
-	float4 uvsets = input.GetUVSets();
+    float4 uvsets = input.GetUVSets();
 	
 	write_mipmap_feedback(push.materialIndex, ddx_coarse(uvsets), ddy_coarse(uvsets));
 
@@ -356,12 +354,12 @@ float4 main(PixelInput input) : SV_TARGET
 	
 	//fincol += 3 * col(uvsets);
 	//fincol /= 4;
-
+	//fincol = col(uvsets);
 	
-	fincol *= 1 * GetScanline(uvsets);
 	fincol *= mask(input.pos);
+	fincol *= 1 * GetScanline(uvsets);
 
-	float4 cc = (pow(fincol, 1 / 2.2));
+	float4 cc = fincol;//(pow(fincol, 1 / 2.2));
 	return cc;
 	//return ((frac(xx) < fac) && (frac(yy) < fac)) ? cc : cc * .0;
 }
