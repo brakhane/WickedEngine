@@ -1876,7 +1876,7 @@ void LoadShaders()
 		desc.vs = &shaders[realVS];
 		desc.ps = &shaders[PSTYPE_OBJECT_TEST];
 
-		desc.bs = &blendStates[BSTYPE_ADDITIVE];
+		desc.bs = &blendStates[BSTYPE_OPAQUE];
 		desc.rs = &rasterizers[RSTYPE_FRONT];
 		desc.dss = &depthStencils[DSSTYPE_DEFAULT];
 		desc.pt = PrimitiveTopology::TRIANGLELIST;
