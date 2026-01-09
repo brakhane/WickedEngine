@@ -296,40 +296,57 @@ float4 mandel(float2 pos)
 
 float4 col(float2 pos)
 {
-	const float2 res = float2(1*640, 1*480);
+	// const float2 res = float2(1*800, 1*600);
 
-	float4 color = mandel(trunc(res * pos) / res);
-	//color = mandel(pos);
-	return color;
+	// float4 color = mandel(trunc(res * pos) / res);
+	// //color = mandel(pos);
+	// return color;
+	float4 fincol;
+    ShaderMaterial material = GetMaterial();
+
+
+	[branch]
+	if (material.textures[BASECOLORMAP].IsValid())
+	{
+		fincol = material.textures[BASECOLORMAP].Sample(sampler_objectshader, pos.xyxx);
+	}
+	else
+	{
+		fincol = 1;
+	}
+	return fincol;
+
+
 }
 
 
 float4 mask(float2 pos)
 {
-	const float dark = .5;
-	pos.x += 3 * pos.y;
+	const float dark = .1;
+	pos.x += pos.y / 3.0;
 	float4 m = float4(dark, dark, dark, 1.);
-	float x = frac(pos.x * 1.0 / 6.0);
-	if (x < .333) m.r = 1.0;
-	else if (x < .666) m.g = 1.0;
+	float x = frac(pos.x * 1.0 / 3.0);
+	if (x < .3333) m.r = 1.0;
+	else if (x < .6666) m.g = 1.0;
 	else m.b = 1.0;
 	return m;
 }
 
 float Scanline(float y, float fBlur)
 {
-	float fResult = sin(y * 2 * PI - PI/2) * 0.45 +0.55;
-	return lerp(fResult, 1.0f, min(1., fBlur));
+	float fResult = sin(y * 2 * PI) * .2 + .8;
+	//return lerp(fResult, 1.0f, min(1., fBlur));
+	return lerp(min(1., fBlur), 1.0f, fResult);
 }
 
 float GetScanline(float2 vUV)
 {
 	//vUV.y *= 0.25;
-	vUV.y *= 480;
+	vUV.y *= 400;
 	float2 dx = ddx(vUV);
 	float2 dy = ddy(vUV);
 	float dV = length(float2(dx.y, dy.y));
-	if (dV <= 0.0) return 1.0;
+	if (dV <= 0.0) return 0;
 	return Scanline(vUV.y, dV * 1.3);
 }
 
@@ -339,7 +356,7 @@ float4 main(PixelInput input) : SV_TARGET
 	ShaderMaterial material = GetMaterial();
 
     float4 uvsets = input.GetUVSets();
-	
+
 	write_mipmap_feedback(push.materialIndex, ddx_coarse(uvsets), ddy_coarse(uvsets));
 
 	float dx = abs(ddx(uvsets.x));
@@ -351,15 +368,14 @@ float4 main(PixelInput input) : SV_TARGET
 	float2 lr = uvsets.xy + 1 * float2(+dx, +dy);
 
 	float4 fincol = (col(ul) + col(ur) + col(ll) + col(lr)) / 4;
-	
-	//fincol += 3 * col(uvsets);
+
+    //fincol += 3 * col(uvsets);
 	//fincol /= 4;
 	//fincol = col(uvsets);
-	
+
 	fincol *= mask(input.pos);
-	fincol *= 1 * GetScanline(uvsets);
+    fincol *= 1 * GetScanline(uvsets);
 
 	float4 cc = fincol;//(pow(fincol, 1 / 2.2));
 	return cc;
-	//return ((frac(xx) < fac) && (frac(yy) < fac)) ? cc : cc * .0;
 }
