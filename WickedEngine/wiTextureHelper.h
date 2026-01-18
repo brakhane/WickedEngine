@@ -27,7 +27,8 @@ namespace wi::texturehelper
 		uint32_t width,
 		uint32_t height,
 		wi::graphics::Format format = wi::graphics::Format::R8G8B8A8_UNORM,
-		wi::graphics::Swizzle swizzle = {}
+		wi::graphics::Swizzle swizzle = {},
+		wi::graphics::Usage usage = wi::graphics::Usage::DEFAULT
 	);
 
 	enum class GradientType
