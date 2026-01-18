@@ -265,13 +265,10 @@ namespace wi::texturehelper
 		uint32_t width,
 		uint32_t height,
 		Format format,
-		Swizzle swizzle
+		Swizzle swizzle,
+		Usage usage
 	)
 	{
-		if (data == nullptr)
-		{
-			return false;
-		}
 		GraphicsDevice* device = wi::graphics::GetDevice();
 
 		TextureDesc desc;
@@ -281,14 +278,31 @@ namespace wi::texturehelper
 		desc.array_size = 1;
 		desc.format = format;
 		desc.sample_count = 1;
-		desc.bind_flags = BindFlag::SHADER_RESOURCE;
 		desc.swizzle = swizzle;
+		desc.usage = usage;
+		switch(usage)
+		{
+		case Usage::DEFAULT:
+			desc.bind_flags = BindFlag::SHADER_RESOURCE;
+			break;
+		case Usage::UPLOAD:
+			// nothing to do, bind_flags is already NONE
+			break;
+		case Usage::READBACK:
+			// TODO
+			break;
+		}
 
-		SubresourceData InitData;
-		InitData.data_ptr = data;
-		InitData.row_pitch = width * GetFormatStride(format) / GetFormatBlockSize(format);
+		SubresourceData* sr_data_ptr = nullptr;
 
-		return device->CreateTexture(&desc, &InitData, &texture);
+		if (data != nullptr)
+		{
+			SubresourceData InitData;
+			InitData.data_ptr = data;
+			InitData.row_pitch = width * GetFormatStride(format) / GetFormatBlockSize(format);
+			sr_data_ptr = &InitData;
+		}
+		return device->CreateTexture(&desc, sr_data_ptr, &texture);
 	}
 
 	Texture CreateGradientTexture(
