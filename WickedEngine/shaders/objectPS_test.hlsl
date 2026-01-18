@@ -265,7 +265,7 @@ float4 VGA(int i)
 	return float4(col / 63, 1.);
 }
 
-#define MAX 16
+#define MAX 240
 
 float mandel2(float2 pos)
 {
@@ -296,11 +296,11 @@ float4 mandel(float2 pos)
 
 float4 col(float2 pos)
 {
-	// const float2 res = float2(1*800, 1*600);
+	const float2 res = float2(1*320, 1*200);
 
-	// float4 color = mandel(trunc(res * pos) / res);
-	// //color = mandel(pos);
-	// return color;
+	//float4 color = mandel(trunc(res * pos) / res);
+	//color = mandel(pos);
+	//return color;
 	float4 fincol;
     ShaderMaterial material = GetMaterial();
 
@@ -342,7 +342,7 @@ float Scanline(float y, float fBlur)
 float GetScanline(float2 vUV)
 {
 	//vUV.y *= 0.25;
-	vUV.y *= 400;
+	vUV.y *= 200;
 	float2 dx = ddx(vUV);
 	float2 dy = ddy(vUV);
 	float dV = length(float2(dx.y, dy.y));
