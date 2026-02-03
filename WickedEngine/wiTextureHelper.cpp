@@ -295,9 +295,9 @@ namespace wi::texturehelper
 
 		SubresourceData* sr_data_ptr = nullptr;
 
+		SubresourceData InitData;
 		if (data != nullptr)
 		{
-			SubresourceData InitData;
 			InitData.data_ptr = data;
 			InitData.row_pitch = width * GetFormatStride(format) / GetFormatBlockSize(format);
 			sr_data_ptr = &InitData;
