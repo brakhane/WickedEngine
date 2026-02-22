@@ -15869,10 +15869,6 @@ void Postprocess_DepthOfField(
 			GPUBarrier::Image(&res.texture_postfilter, res.texture_postfilter.desc.layout, ResourceState::UNORDERED_ACCESS),
 			GPUBarrier::Image(&res.texture_alpha2, res.texture_alpha2.desc.layout, ResourceState::UNORDERED_ACCESS),
 			GPUBarrier::Image(&output, output.desc.layout, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tile_statistics, ResourceState::UNDEFINED, ResourceState::COPY_DST),
-			GPUBarrier::Buffer(&res.buffer_tiles_earlyexit, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tiles_cheap, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tiles_expensive, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
 		};
 		device->Barrier(barriers, arraysize(barriers), cmd);
 	}
@@ -16283,10 +16279,6 @@ void Postprocess_MotionBlur(
 			GPUBarrier::Image(&res.texture_tilemin, res.texture_tilemin.desc.layout, ResourceState::UNORDERED_ACCESS),
 			GPUBarrier::Image(&res.texture_neighborhoodmax, res.texture_neighborhoodmax.desc.layout, ResourceState::UNORDERED_ACCESS),
 			GPUBarrier::Image(&output, output.desc.layout, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tile_statistics, ResourceState::UNDEFINED, ResourceState::COPY_DST),
-			GPUBarrier::Buffer(&res.buffer_tiles_earlyexit, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tiles_cheap, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
-			GPUBarrier::Buffer(&res.buffer_tiles_expensive, ResourceState::UNDEFINED, ResourceState::UNORDERED_ACCESS),
 		};
 		device->Barrier(barriers, arraysize(barriers), cmd);
 	}
