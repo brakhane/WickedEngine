@@ -665,7 +665,7 @@ namespace metal_internal
 			uint32_t firstSlice = 0;
 			uint32_t sliceCount = 0;
 			
-			bool IsValid() const { return entry.textureViewID != 0; }
+			bool IsValid() const { return entry.textureViewID != 0 || mipCount > 0 || sliceCount > 0; }
 		};
 		Subresource srv;
 		Subresource uav;
