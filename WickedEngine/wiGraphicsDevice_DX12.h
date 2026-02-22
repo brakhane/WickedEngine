@@ -108,6 +108,7 @@ namespace wi::graphics
 				Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
 				Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
 				Microsoft::WRL::ComPtr<ID3D12Fence> fence;
+				uint64_t fenceValue = 0;
 				GPUBuffer uploadbuffer;
 				inline bool IsValid() const { return commandList != nullptr; }
 			};

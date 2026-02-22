@@ -1673,7 +1673,7 @@ std::mutex queue_locker;
 			cmd.commandList.Get()
 		};
 
-		dx12_check(cmd.fence->Signal(0));
+		cmd.fenceValue++;
 
 		{
 #ifdef PLATFORM_XBOX
@@ -1681,10 +1681,10 @@ std::mutex queue_locker;
 #endif // PLATFORM_XBOX
 
 			queue->ExecuteCommandLists(1, commandlists);
-			dx12_check(queue->Signal(cmd.fence.Get(), 1));
+			dx12_check(queue->Signal(cmd.fence.Get(), cmd.fenceValue));
 		}
 
-		dx12_check(cmd.fence->SetEventOnCompletion(1, nullptr));
+		dx12_check(cmd.fence->SetEventOnCompletion(cmd.fenceValue, nullptr));
 
 		std::scoped_lock lock(locker);
 		freelist.push_back(cmd);
