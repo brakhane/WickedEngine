@@ -54,6 +54,7 @@ namespace dx12_internal
 #endif
 	static PFN_D3D12_CREATE_DEVICE D3D12CreateDevice = nullptr;
 	static PFN_D3D12_CREATE_VERSIONED_ROOT_SIGNATURE_DESERIALIZER D3D12CreateVersionedRootSignatureDeserializer = nullptr;
+	static PFN_D3D12_SERIALIZE_ROOT_SIGNATURE D3D12SerializeRootSignature = nullptr;
 #endif // PLATFORM_WINDOWS_DESKTOP
 
 	// Engine -> Native converters
@@ -2190,6 +2191,16 @@ std::mutex queue_locker;
 			wi::platform::Exit();
 		}
 
+		D3D12SerializeRootSignature = (PFN_D3D12_SERIALIZE_ROOT_SIGNATURE)wiGetProcAddress(dx12, "D3D12SerializeRootSignature");
+		assert(D3D12SerializeRootSignature != nullptr);
+		if (D3D12SerializeRootSignature == nullptr)
+		{
+			std::stringstream ss("");
+			ss << "Failed to load D3D12SerializeRootSignature! ERROR: " << std::hex << GetLastError();
+			wi::helper::messageBox(ss.str(), "Error!");
+			wi::platform::Exit();
+		}
+
 		if (validationMode != ValidationMode::Disabled)
 		{
 			// Enable the debug layer.
@@ -2855,6 +2866,42 @@ std::mutex queue_locker;
 			wi::platform::Exit();
 		}
 
+		// Dummy rootsignature is created for validating multidraw command signatures (required):
+		ComPtr<ID3D12RootSignature> rootsig;
+		ComPtr<ID3DBlob> serializedRootSig = nullptr;
+		ComPtr<ID3DBlob> errorBlob = nullptr;
+		D3D12_ROOT_PARAMETER rootparam = {};
+		rootparam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		rootparam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		rootparam.Constants.Num32BitValues = PUSH_CONSTANT_COUNT;
+		rootparam.Constants.ShaderRegister = 999;
+		D3D12_ROOT_SIGNATURE_DESC rootsig_desc = {};
+		rootsig_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+		rootsig_desc.NumParameters = 1;
+		rootsig_desc.pParameters = &rootparam;
+		dx12_check(D3D12SerializeRootSignature(&rootsig_desc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf()));
+		dx12_check(device->CreateRootSignature(0, serializedRootSig->GetBufferPointer(), serializedRootSig->GetBufferSize(), PPV_ARGS(rootsig)));
+
+		D3D12_INDIRECT_ARGUMENT_DESC drawInstancedCountArgs[2];
+		drawInstancedCountArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+		drawInstancedCountArgs[0].Constant.RootParameterIndex = 0;
+		drawInstancedCountArgs[0].Constant.Num32BitValuesToSet = 1;
+		drawInstancedCountArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+		cmd_desc.ByteStride = sizeof(uint32_t) + sizeof(D3D12_DRAW_ARGUMENTS);
+		cmd_desc.NumArgumentDescs = arraysize(drawInstancedCountArgs);
+		cmd_desc.pArgumentDescs = drawInstancedCountArgs;
+		dx12_check(device->CreateCommandSignature(&cmd_desc, rootsig.Get(), PPV_ARGS(drawInstancedIndirectCountCommandSignature)));
+
+		D3D12_INDIRECT_ARGUMENT_DESC drawIndexedInstancedCountArgs[2];
+		drawIndexedInstancedCountArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+		drawIndexedInstancedCountArgs[0].Constant.RootParameterIndex = 0;
+		drawIndexedInstancedCountArgs[0].Constant.Num32BitValuesToSet = 1;
+		drawIndexedInstancedCountArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+		cmd_desc.ByteStride = sizeof(uint32_t) + sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+		cmd_desc.NumArgumentDescs = arraysize(drawIndexedInstancedCountArgs);
+		cmd_desc.pArgumentDescs = drawIndexedInstancedCountArgs;
+		dx12_check(device->CreateCommandSignature(&cmd_desc, rootsig.Get(), PPV_ARGS(drawIndexedInstancedIndirectCountCommandSignature)));
+
 		if (CheckCapability(GraphicsDeviceCapability::MESH_SHADER))
 		{
 			D3D12_INDIRECT_ARGUMENT_DESC dispatchMeshArgs[1];
@@ -2866,12 +2913,22 @@ std::mutex queue_locker;
 #endif // PLATFORM_XBOX
 			cmd_desc.NumArgumentDescs = 1;
 			cmd_desc.pArgumentDescs = dispatchMeshArgs;
-			hr = dx12_check(device->CreateCommandSignature(&cmd_desc, nullptr, PPV_ARGS(dispatchMeshIndirectCommandSignature)));
-			if (FAILED(hr))
-			{
-				wilog_messagebox("ID3D12Device::CreateCommandSignature[dispatchMeshIndirect] failed! ERROR: %s", wi::helper::GetPlatformErrorString(hr).c_str());
-				wi::platform::Exit();
-			}
+			dx12_check(device->CreateCommandSignature(&cmd_desc, nullptr, PPV_ARGS(dispatchMeshIndirectCommandSignature)));
+
+			D3D12_INDIRECT_ARGUMENT_DESC dispatchMeshCountArgs[2];
+			dispatchMeshCountArgs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT;
+			dispatchMeshCountArgs[0].Constant.RootParameterIndex = 0;
+			dispatchMeshCountArgs[0].Constant.Num32BitValuesToSet = 1;
+#ifdef PLATFORM_XBOX
+			wi::graphics::xbox::FillDispatchMeshIndirectArgumentDesc(dispatchMeshCountArgs[1], cmd_desc);
+#else
+			dispatchMeshCountArgs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+			cmd_desc.ByteStride = sizeof(D3D12_DISPATCH_MESH_ARGUMENTS);
+#endif // PLATFORM_XBOX
+			cmd_desc.ByteStride += sizeof(uint32_t);
+			cmd_desc.NumArgumentDescs = arraysize(dispatchMeshCountArgs);
+			cmd_desc.pArgumentDescs = dispatchMeshCountArgs;
+			dx12_check(device->CreateCommandSignature(&cmd_desc, rootsig.Get(), PPV_ARGS(dispatchMeshIndirectCommandSignature)));
 		}
 
 		allocationhandler->descriptors_res.init(this, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 4096);
@@ -6754,7 +6811,7 @@ std::mutex queue_locker;
 		auto args_internal = to_internal(args);
 		auto count_internal = to_internal(count);
 		CommandList_DX12& commandlist = GetCommandList(cmd);
-		commandlist.GetGraphicsCommandList()->ExecuteIndirect(drawInstancedIndirectCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
+		commandlist.GetGraphicsCommandList()->ExecuteIndirect(drawInstancedIndirectCountCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
 	}
 	void GraphicsDevice_DX12::DrawIndexedInstancedIndirectCount(const GPUBuffer* args, uint64_t args_offset, const GPUBuffer* count, uint64_t count_offset, uint32_t max_count, CommandList cmd)
 	{
@@ -6762,7 +6819,7 @@ std::mutex queue_locker;
 		auto args_internal = to_internal(args);
 		auto count_internal = to_internal(count);
 		CommandList_DX12& commandlist = GetCommandList(cmd);
-		commandlist.GetGraphicsCommandList()->ExecuteIndirect(drawIndexedInstancedIndirectCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
+		commandlist.GetGraphicsCommandList()->ExecuteIndirect(drawIndexedInstancedIndirectCountCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
 	}
 	void GraphicsDevice_DX12::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ, CommandList cmd)
 	{
@@ -6796,7 +6853,7 @@ std::mutex queue_locker;
 		auto args_internal = to_internal(args);
 		auto count_internal = to_internal(count);
 		CommandList_DX12& commandlist = GetCommandList(cmd);
-		commandlist.GetGraphicsCommandList()->ExecuteIndirect(dispatchMeshIndirectCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
+		commandlist.GetGraphicsCommandList()->ExecuteIndirect(dispatchMeshIndirectCountCommandSignature.Get(), max_count, args_internal->resource.Get(), args_offset, count_internal->resource.Get(), count_offset);
 	}
 	void GraphicsDevice_DX12::CopyResource(const GPUResource* pDst, const GPUResource* pSrc, CommandList cmd)
 	{

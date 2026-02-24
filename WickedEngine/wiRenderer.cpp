@@ -11305,7 +11305,7 @@ void ComputeLuminance(
 			cmd
 		);
 
-		device->Barrier(GPUBarrier::Memory(), cmd);
+		device->Barrier(GPUBarrier::Memory(&res.luminance), cmd);
 	}
 
 	// Pass 2 : Reduce into 1x1 texture
@@ -11633,7 +11633,7 @@ void Visibility_Prepare(
 		{
 			device->ClearUAV(res.primitiveID_resolved, 0, cmd);
 		}
-		device->Barrier(GPUBarrier::Memory(), cmd);
+		device->Barrier(cmd);
 
 		device->BindComputeShader(&shaders[msaa ? CSTYPE_VISIBILITY_RESOLVE_MSAA : CSTYPE_VISIBILITY_RESOLVE], cmd);
 
@@ -11692,7 +11692,7 @@ void Visibility_Surface(
 	device->ClearUAV(&res.texture_roughness, 0, cmd);
 	device->ClearUAV(&res.texture_payload_0, 0, cmd);
 	device->ClearUAV(&res.texture_payload_1, 0, cmd);
-	device->Barrier(GPUBarrier::Memory(), cmd);
+	device->Barrier(cmd);
 
 	device->BindResource(&res.binned_tiles, 0, cmd);
 	device->BindUAV(&output, 0, cmd);
@@ -11747,7 +11747,7 @@ void Visibility_Surface_Reduced(
 
 	device->ClearUAV(&res.texture_normals, 0, cmd);
 	device->ClearUAV(&res.texture_roughness, 0, cmd);
-	device->Barrier(GPUBarrier::Memory(), cmd);
+	device->Barrier(cmd);
 
 	device->BindResource(&res.binned_tiles, 0, cmd);
 	device->BindUAV(&res.texture_normals, 1, cmd);
@@ -11886,7 +11886,7 @@ void SurfelGI_Coverage(
 	}
 	device->ClearUAV(&res.result_halfres, 0, cmd);
 	device->ClearUAV(&res.result, 0, cmd);
-	device->Barrier(GPUBarrier::Memory(), cmd);
+	device->Barrier(cmd);
 
 
 	// Coverage:
@@ -11978,18 +11978,11 @@ void SurfelGI(
 	if (!scene.surfelgi.cleared)
 	{
 		scene.surfelgi.cleared = true;
-		GPUBarrier barriers[] = {
-			GPUBarrier::Image(&scene.surfelgi.momentsTexture, scene.surfelgi.momentsTexture.desc.layout, ResourceState::UNORDERED_ACCESS),
-		};
-		device->Barrier(barriers, arraysize(barriers), cmd);
+		device->Barrier(GPUBarrier::Image(&scene.surfelgi.momentsTexture, scene.surfelgi.momentsTexture.desc.layout, ResourceState::UNORDERED_ACCESS), cmd);
 		device->ClearUAV(&scene.surfelgi.momentsTexture, 0, cmd);
 		device->ClearUAV(&scene.surfelgi.varianceBuffer, 0, cmd);
-		for (auto& x : barriers)
-		{
-			std::swap(x.image.layout_before, x.image.layout_after);
-		}
-		device->Barrier(barriers, arraysize(barriers), cmd);
-		device->Barrier(GPUBarrier::Memory(), cmd);
+		device->Barrier(GPUBarrier::Image(&scene.surfelgi.momentsTexture, ResourceState::UNORDERED_ACCESS, scene.surfelgi.momentsTexture.desc.layout), cmd);
+		device->Barrier(GPUBarrier::Memory(&scene.surfelgi.varianceBuffer), cmd);
 	}
 
 	// Grid reset:
@@ -16822,7 +16815,7 @@ void VolumetricClouds_Capture(
 	{
 		device->ClearUAV(&scene.cloudmap, 0, cmd);
 		device->ClearUAV(&scene.cloudmap_variance, 0, cmd);
-		device->Barrier(GPUBarrier::Memory(), cmd);
+		device->Barrier(cmd);
 	}
 
 	device->Dispatch(
@@ -17219,7 +17212,7 @@ void Postprocess_FSR(
 
 		device->ClearUAV(&temp, 0, cmd);
 		device->ClearUAV(&output, 0, cmd);
-		device->Barrier(GPUBarrier::Memory(), cmd);
+		device->Barrier(cmd);
 
 		device->Dispatch((desc.width + 15) / 16, (desc.height + 15) / 16, 1, cmd);
 

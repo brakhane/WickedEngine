@@ -307,6 +307,12 @@ namespace wi::graphics
 			Barrier(&barrier, 1, cmd);
 		}
 
+		// Execute a global GPU memory barrier
+		void Barrier(CommandList cmd)
+		{
+			Barrier(GPUBarrier::Memory(), cmd);
+		}
+
 		struct GPULinearAllocator
 		{
 			GPUBuffer buffer;

@@ -18,6 +18,7 @@
 #define PLATFORM_WINDOWS_DESKTOP
 #endif // WINAPI_FAMILY_GAMES
 #define wiLoadLibrary(name) LoadLibraryA(name)
+#define wiFreeLibrary(handle) FreeLibrary(handle)
 #define wiGetProcAddress(handle,name) GetProcAddress(handle, name)
 #elif defined(__SCE__)
 #define PLATFORM_PS5
@@ -43,6 +44,7 @@
 #if defined(PLATFORM_LINUX) || defined(PLATFORM_APPLE)
 #include <dlfcn.h>
 #define wiLoadLibrary(name) dlopen(name, RTLD_LAZY)
+#define wiFreeLibrary(handle) dlclose(handle)
 #define wiGetProcAddress(handle,name) dlsym(handle, name)
 typedef void* HMODULE;
 #endif // defined(PLATFORM_LINUX) || defined(PLATFORM_APPLE)
