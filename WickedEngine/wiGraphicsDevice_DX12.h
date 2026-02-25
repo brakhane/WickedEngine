@@ -60,9 +60,15 @@ namespace wi::graphics
 		Microsoft::WRL::ComPtr<ID3D12CommandSignature> drawIndexedInstancedIndirectCommandSignature;
 		Microsoft::WRL::ComPtr<ID3D12CommandSignature> dispatchMeshIndirectCommandSignature;
 
-		Microsoft::WRL::ComPtr<ID3D12CommandSignature> drawInstancedIndirectCountCommandSignature;
-		Microsoft::WRL::ComPtr<ID3D12CommandSignature> drawIndexedInstancedIndirectCountCommandSignature;
-		Microsoft::WRL::ComPtr<ID3D12CommandSignature> dispatchMeshIndirectCountCommandSignature;
+		// Multi count draw command signatures (when drawID is used) need to be created with valid root signature, so they are delayed until shader creation:
+		struct MultiDrawSignature
+		{
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> drawInstancedIndirectCountCommandSignature;
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> drawIndexedInstancedIndirectCountCommandSignature;
+			Microsoft::WRL::ComPtr<ID3D12CommandSignature> dispatchMeshIndirectCountCommandSignature;
+		};
+		mutable std::mutex multidraw_signature_locker;
+		mutable wi::unordered_map<ID3D12RootSignature*, MultiDrawSignature> multidraw_signatures;
 
 		wi::vector<GUID> video_decode_profile_list;
 
