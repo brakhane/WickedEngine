@@ -272,6 +272,7 @@ namespace wi::physics
 			float accumulator = 0;
 			float alpha = 0;
 			bool activate_all_rigid_bodies = false;
+			bool optimize_broadphase = false;
 			float GetKinematicDT(float dt) const
 			{
 				return clamp(accumulator + dt, 0.0f, TIMESTEP * ACCURACY);
@@ -2134,6 +2135,12 @@ namespace wi::physics
 		PhysicsScene& physics_scene = GetPhysicsScene(scene);
 		physics_scene.physics_system.SetGravity(cast(scene.weather.gravity));
 
+		if (physics_scene.optimize_broadphase)
+		{
+			physics_scene.optimize_broadphase = false;
+			physics_scene.physics_system.OptimizeBroadPhase();
+		}
+
 		// First, do the creations when needed (AddRigidBody, AddSoftBody, etc):
 		//	These will be locking updates, but doesn't need to be performed frequently
 		wi::jobsystem::Dispatch(ctx, (uint32_t)scene.rigidbodies.GetCount(), dispatchGroupSize, [&scene](wi::jobsystem::JobArgs args) {
@@ -3817,6 +3824,14 @@ namespace wi::physics
 	{
 		PhysicsScene& physics_scene = *(PhysicsScene*)scene.physics_scene.get();
 		physics_scene.activate_all_rigid_bodies = true;
+	}
+
+	void OptimizeBroadPhase(Scene& scene)
+	{
+		if (scene.physics_scene == nullptr)
+			return;
+		PhysicsScene& physics_scene = *(PhysicsScene*)scene.physics_scene.get();
+		physics_scene.optimize_broadphase = true;
 	}
 
 	void ResetPhysicsObjects(Scene& scene)

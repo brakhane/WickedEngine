@@ -674,6 +674,8 @@ namespace wi::terrain
 			weather = *weather_component; // feedback default weather
 		}
 
+		bool props_regenerated = false;
+
 		// Invalidated chunks replacements, originals are removed before merging updated ones:
 		for (Chunk chunk : generator->removable_chunks)
 		{
@@ -692,6 +694,7 @@ namespace wi::terrain
 		generator->removable_chunks.clear();
 
 		// What was generated, will be merged in to the main scene
+		props_regenerated |= generator->scene.rigidbodies.GetCount() >= 1000;
 		scene->MergeFastInternal(generator->scene);
 
 		chunk_scale_rcp = 1.0f / chunk_scale;
@@ -833,6 +836,7 @@ namespace wi::terrain
 					{
 						scene->Entity_Remove(chunk_data.props_entity);
 						chunk_data.props_entity = INVALID_ENTITY; // prop can be generated here by generation thread...
+						props_regenerated = true;
 					}
 				}
 			}
@@ -900,6 +904,11 @@ namespace wi::terrain
 			}
 
 			it++;
+		}
+
+		if (props_regenerated)
+		{
+			wi::physics::OptimizeBroadPhase(*scene);
 		}
 
 		if (virtual_texture_any)
@@ -1626,7 +1635,7 @@ namespace wi::terrain
 					tile_pool_desc.size += atlas.maps[map_type].texture.sparse_properties->total_tile_count * atlas.maps[map_type].texture.sparse_page_size;
 					tile_pool_desc.alignment = std::max(tile_pool_desc.alignment, atlas.maps[map_type].texture.sparse_page_size);
 #endif // NOSPARSE
-					
+
 					for (uint32_t i = 0; i < atlas.maps[map_type].texture_raw_block.desc.mip_levels; ++i)
 					{
 						int subresource_index = device->CreateSubresource(&atlas.maps[map_type].texture_raw_block, SubresourceType::UAV, 0, 1, i, 1);
@@ -1898,7 +1907,7 @@ namespace wi::terrain
 		GraphicsDevice* device = GetDevice();
 		device->EventBegin("Terrain - UpdateVirtualTexturesGPU", cmd);
 		auto range = wi::profiler::BeginRangeGPU("Terrain - UpdateVirtualTexturesGPU", cmd);
-		
+
 		device->Barrier(GPUBarrier::Memory(), cmd); // on Apple this fixes corruption so better be safe on all platforms, do not remove
 
 		device->EventBegin("Update Residency Maps", cmd);
@@ -2046,7 +2055,7 @@ namespace wi::terrain
 							cmd
 						);
 					}
-					
+
 #ifdef NOSPARSE
 					push.write_offset = write_offset_original;
 					push.write_size = SVT_TILE_SIZE_PADDED / 4u;
